@@ -1,0 +1,40 @@
+[gd_scene format=2]
+
+[node name="CodeEditor" type="Panel"]
+margin_right = 100.0
+margin_bottom = 100.0
+rect_min_size = Vector2( 100, 100 )
+size_flags_horizontal = 3
+
+[node name="UpdateTimer" type="Timer" parent="."]
+wait_time = 0.3
+one_shot = true
+autostart = true
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TextEdit" type="TextEdit" parent="VBoxContainer"]
+unique_name_in_owner = true
+margin_right = 100.0
+margin_bottom = 96.0
+size_flags_vertical = 3
+highlight_current_line = true
+syntax_highlighting = true
+show_line_numbers = true
+draw_tabs = true
+fold_gutter = true
+highlight_all_occurrences = true
+minimap_draw = true
+caret_blink = true
+
+[node name="ErrorContainer" type="MarginContainer" parent="VBoxContainer"]
+unique_name_in_owner = true
+margin_top = 100.0
+margin_right = 100.0
+margin_bottom = 100.0
+
+[node name="ErrorLabel" type="RichTextLabel" parent="VBoxContainer/ErrorContainer"]
+unique_name_in_owner = true
+margin_right = 100.0
