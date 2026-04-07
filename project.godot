@@ -17,6 +17,9 @@ config/icon="res://icon.png"
 [gui]
 
 common/drop_mouse_on_gui_input_disabled=true
+theme/use_hidpi=true
+theme/custom="res://resources/ui_theme.tres"
+theme/custom_font="res://resources/font/default_font.tres"
 
 [mono]
 
