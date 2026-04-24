@@ -1,6 +1,7 @@
+using Godot;
 using System.Collections.Generic;
 
-public class UMLMethod
+public class UMLMethod : Resource
 {
 	public UMLMethod(
 		string name = "method",

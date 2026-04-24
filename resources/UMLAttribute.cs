@@ -1,4 +1,6 @@
-public class UMLAttribute
+using Godot;
+
+public class UMLAttribute : Resource
 {
 	public UMLAttribute(string name = "attribute", string type = "Integer", UMLParser.Visibility visibility = UMLParser.Visibility.Unknown)
 	{

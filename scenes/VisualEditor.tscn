@@ -4,13 +4,16 @@
 margin_right = 100.0
 margin_bottom = 100.0
 rect_min_size = Vector2( 100, 100 )
+rect_clip_content = true
 size_flags_horizontal = 3
 
 [node name="Anchor" type="Control" parent="."]
 unique_name_in_owner = true
+mouse_filter = 2
 
 [node name="GrayOut" type="ColorRect" parent="."]
 unique_name_in_owner = true
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 color = Color( 0, 0, 0, 0.392157 )

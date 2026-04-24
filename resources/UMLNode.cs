@@ -1,6 +1,6 @@
-using System.Numerics;
+using Godot;
 
-public class UMLNode
+public class UMLNode : Resource
 {
 	public UMLNode(string name = "Node", Vector2? position = null)
 	{

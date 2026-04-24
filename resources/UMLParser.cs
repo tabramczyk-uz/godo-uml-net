@@ -1,12 +1,13 @@
+using Godot;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Numerics;
 using System.Text.RegularExpressions;
 
-public class UMLParser
+public class UMLParser : Node
 {
-	public event Action<string, int> ErrorOccurred;
+	[Signal]
+	public delegate void ErrorOccurred(string message, int lineNumber);
 
 	public enum Visibility
 	{
@@ -30,7 +31,7 @@ public class UMLParser
 		Position
 	}
 
-	private const string CommentPrefix = "//";
+	public const string CommentPrefix = "//";
 
 	private static readonly Regex NodeRegex = new Regex(@"([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)", RegexOptions.Compiled);
 	private static readonly Dictionary<NodeType, string> NodeTypeNames = new Dictionary<NodeType, string>
@@ -47,11 +48,6 @@ public class UMLParser
 
 	private static readonly Regex RelationshipRegex = new Regex(@"([a-zA-Z_][a-zA-Z0-9_]*)\s*(->|<-|[\-\.]{1,2}|[<>]{1,2}|[oO]{1,2})\s*([a-zA-Z_][a-zA-Z0-9_]*)", RegexOptions.Compiled);
 	private static readonly Regex PositionRegex = new Regex(@"\[\s*([\-+]?\d*\.?\d+)\s*,\s*([\-+]?\d*\.?\d+)\s*\]", RegexOptions.Compiled);
-
-	private void RaiseError(string message, int lineNumber)
-	{
-		ErrorOccurred?.Invoke(message, lineNumber);
-	}
 
 	public UMLDiagram ParseCode(string code)
 	{
@@ -90,13 +86,13 @@ public class UMLParser
 						NodeProperty property = GetPropertyTypeFromName(propertyName);
 						if (property == NodeProperty.Unknown)
 						{
-							RaiseError($"Unknown property: {propertyName}", lineNumber);
+							EmitSignal(nameof(ErrorOccurred), $"Unknown property: {propertyName}", lineNumber);
 							return null;
 						}
 
 						if (currentNodeSetProperties.Contains(property))
 						{
-							RaiseError($"Duplicate property: {propertyName}", lineNumber);
+							EmitSignal(nameof(ErrorOccurred), $"Duplicate property: {propertyName}", lineNumber);
 							return null;
 						}
 
@@ -114,17 +110,17 @@ public class UMLParser
 									continue;
 								}
 
-								RaiseError("Invalid position format", lineNumber);
+								EmitSignal(nameof(ErrorOccurred), "Invalid position format", lineNumber);
 								return null;
 						}
 					}
 
-					RaiseError("Invalid property syntax", lineNumber);
+					EmitSignal(nameof(ErrorOccurred), "Invalid property syntax", lineNumber);
 					return null;
 				}
 				else
 				{
-					RaiseError("Unexpected indentation", lineNumber);
+					EmitSignal(nameof(ErrorOccurred), "Unexpected indentation", lineNumber);
 					return null;
 				}
 			}
@@ -137,7 +133,7 @@ public class UMLParser
 
 				if (takenNodeNames.Contains(nodeName))
 				{
-					RaiseError($"Duplicate node: {nodeName}", lineNumber);
+					EmitSignal(nameof(ErrorOccurred), $"Duplicate node: {nodeName}", lineNumber);
 					return null;
 				}
 
@@ -151,7 +147,7 @@ public class UMLParser
 						currentNode = new UMLClass(nodeName);
 						break;
 					default:
-						RaiseError($"Unknown node type: {nodeTypeName}", lineNumber);
+						EmitSignal(nameof(ErrorOccurred), $"Unknown node type: {nodeTypeName}", lineNumber);
 						return null;
 				}
 
@@ -171,13 +167,13 @@ public class UMLParser
 
 				if (fromNode == null)
 				{
-					RaiseError($"Unknown node: {fromNodeName}", lineNumber);
+					EmitSignal(nameof(ErrorOccurred), $"Unknown node: {fromNodeName}", lineNumber);
 					return null;
 				}
 
 				if (toNode == null)
 				{
-					RaiseError($"Unknown node: {toNodeName}", lineNumber);
+					EmitSignal(nameof(ErrorOccurred), $"Unknown node: {toNodeName}", lineNumber);
 					return null;
 				}
 
@@ -185,14 +181,14 @@ public class UMLParser
 				continue;
 			}
 
-			RaiseError("Syntax error", lineNumber);
+			EmitSignal(nameof(ErrorOccurred), "Syntax error", lineNumber);
 			return null;
 		}
 
 		return diagram;
 	}
 
-	public string ChangeNodeName(string code, UMLNode node, string newName)
+	public static string ChangeNodeName(string code, UMLNode node, string newName)
 	{
 		string[] lines = code.Split('\n');
 
@@ -216,16 +212,16 @@ public class UMLParser
 		return string.Join("\n", lines);
 	}
 
-	public string ChangeNodePosition(string code, UMLNode node, Vector2 newPosition)
+	public static string ChangeNodePosition(string code, UMLNode node, Vector2 newPosition)
 	{
 		string propertyName = NodePropertyNames[NodeProperty.Position];
-		string xPosition = ToStringWithoutTrailingZeroes(newPosition.X);
-		string yPosition = ToStringWithoutTrailingZeroes(newPosition.Y);
+		string xPosition = ToStringWithoutTrailingZeroes(newPosition.x);
+		string yPosition = ToStringWithoutTrailingZeroes(newPosition.y);
 
 		int declarationLineNumber = FindNodeDeclaration(code, node);
 		if (declarationLineNumber == -1)
 		{
-			RaiseError($"Node declaration not found for node: {node.Name}", -1);
+			GD.PushError($"Node declaration not found for node: {node.Name}");
 			return code;
 		}
 
@@ -256,7 +252,7 @@ public class UMLParser
 		return string.Join("\n", lines);
 	}
 
-	public int FindNodeDeclaration(string code, UMLNode node)
+	private static int FindNodeDeclaration(string code, UMLNode node)
 	{
 		NodeType nodeType = GetNodeType(node);
 		string nodeTypeName = NodeTypeNames[nodeType];
@@ -280,7 +276,7 @@ public class UMLParser
 		return -1;
 	}
 
-	public int GetLineIndentation(string line)
+	private static int GetLineIndentation(string line)
 	{
 		int indent = 0;
 		foreach (char character in line)
@@ -298,7 +294,7 @@ public class UMLParser
 		return indent;
 	}
 
-	public UMLNode GetNodeByName(UMLDiagram diagram, string nodeName)
+	private static UMLNode GetNodeByName(UMLDiagram diagram, string nodeName)
 	{
 		foreach (UMLNode node in diagram.Nodes)
 		{
@@ -311,12 +307,12 @@ public class UMLParser
 		return null;
 	}
 
-	public NodeType GetNodeType(UMLNode node)
+	public static NodeType GetNodeType(UMLNode node)
 	{
 		return node is UMLClass ? NodeType.Class : NodeType.Node;
 	}
 
-	public NodeType GetNodeTypeFromName(string typeName)
+	private static NodeType GetNodeTypeFromName(string typeName)
 	{
 		foreach (KeyValuePair<NodeType, string> pair in NodeTypeNames)
 		{
@@ -329,7 +325,7 @@ public class UMLParser
 		return NodeType.Unknown;
 	}
 
-	public NodeProperty GetPropertyTypeFromName(string propertyName)
+	private static NodeProperty GetPropertyTypeFromName(string propertyName)
 	{
 		foreach (KeyValuePair<NodeProperty, string> pair in NodePropertyNames)
 		{
@@ -342,7 +338,7 @@ public class UMLParser
 		return NodeProperty.Unknown;
 	}
 
-	public string StripEndEdgesAndComments(string line)
+	private static string StripEndEdgesAndComments(string line)
 	{
 		int commentIndex = line.IndexOf(CommentPrefix, StringComparison.Ordinal);
 		if (commentIndex >= 0)
@@ -353,7 +349,7 @@ public class UMLParser
 		return line.TrimEnd();
 	}
 
-	public string ToStringWithoutTrailingZeroes(float value)
+	private static string ToStringWithoutTrailingZeroes(float value)
 	{
 		string strValue = value.ToString(CultureInfo.InvariantCulture);
 		if (strValue.Contains("."))

@@ -1,4 +1,6 @@
-public class UMLRelationship
+using Godot;
+
+public class UMLRelationship : Resource
 {
 	public UMLRelationship(UMLNode from, UMLNode to)
 	{

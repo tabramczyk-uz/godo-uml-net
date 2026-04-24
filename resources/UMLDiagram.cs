@@ -1,6 +1,7 @@
+using Godot;
 using System.Collections.Generic;
 
-public class UMLDiagram
+public class UMLDiagram : Resource
 {
 	public UMLDiagram()
 	{
