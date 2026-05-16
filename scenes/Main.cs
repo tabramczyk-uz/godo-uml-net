@@ -18,6 +18,7 @@ public class Main : Control
 
 		visualEditor = GetNode<VisualEditor>("%VisualEditor");
 		visualEditor.Connect(nameof(VisualEditor.NodeNameChanged), this, nameof(OnNodeNameChanged));
+		visualEditor.Connect(nameof(VisualEditor.NodePositionChanged), this, nameof(OnNodePositionChanged));
 	}
 
 	private void OnParserError(string message, int lineNumber)
@@ -36,5 +37,10 @@ public class Main : Control
 	private void OnNodeNameChanged(UMLNode node, string newName)
 	{
 		codeEditor.ChangeNodeName(node, newName);
+	}
+
+	private void OnNodePositionChanged(UMLNode node, Vector2 newPosition)
+	{
+		codeEditor.ChangeNodePosition(node, newPosition);
 	}
 }

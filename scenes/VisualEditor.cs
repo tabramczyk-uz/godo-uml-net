@@ -181,7 +181,6 @@ public class VisualEditor : Control
 
         draggedNodeContainer = container;
         container.RectPosition += delta;
-        EmitSignal(nameof(NodePositionChanged), container.UmlNode, container.RectPosition);
         Update();
     }
 
@@ -193,6 +192,7 @@ public class VisualEditor : Control
         }
 
         draggedNodeContainer = null;
+        EmitSignal(nameof(NodePositionChanged), container.UmlNode, container.RectPosition);
     }
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)
