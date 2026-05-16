@@ -17,6 +17,7 @@ public class Main : Control
 		codeEditor.Connect(nameof(CodeEditor.CodeChanged), this, nameof(OnCodeChanged));
 
 		visualEditor = GetNode<VisualEditor>("%VisualEditor");
+		visualEditor.Connect(nameof(VisualEditor.NodeNameChanged), this, nameof(OnNodeNameChanged));
 	}
 
 	private void OnParserError(string message, int lineNumber)
@@ -30,5 +31,10 @@ public class Main : Control
 		codeEditor.DismissError();
 		var diagram = parser.ParseCode(code);
 		visualEditor.RenderDiagram(diagram);
+	}
+
+	private void OnNodeNameChanged(UMLNode node, string newName)
+	{
+		codeEditor.ChangeNodeName(node, newName);
 	}
 }
