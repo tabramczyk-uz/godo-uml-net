@@ -36,7 +36,15 @@ public class Main : Control
 
 	private void OnNodeNameChanged(UMLNode node, string newName)
 	{
-		codeEditor.ChangeNodeName(node, newName);
+		if (parser.IsNodeNameValid(newName))
+		{
+			codeEditor.ChangeNodeName(node, newName);
+		}
+		else
+		{
+			// TODO: Show error message to user
+			GD.PrintErr($"Invalid node name: {newName}");
+		}
 	}
 
 	private void OnNodePositionChanged(UMLNode node, Vector2 newPosition)

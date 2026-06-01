@@ -252,6 +252,11 @@ public class UMLParser : Node
 		return string.Join("\n", lines);
 	}
 
+	public bool IsNodeNameValid(string name)
+	{
+		return NodeRegex.IsMatch($"node {name}");
+	}
+
 	private static int FindNodeDeclaration(string code, UMLNode node)
 	{
 		NodeType nodeType = GetNodeType(node);
