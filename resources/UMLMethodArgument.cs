@@ -1,6 +1,6 @@
 using Godot;
 
-public class UMLMethodArgument : Resource
+public partial class UMLMethodArgument : Resource
 {
 	public UMLMethodArgument(string name = "argument", string type = "Integer")
 	{

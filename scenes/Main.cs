@@ -1,6 +1,6 @@
 using Godot;
 
-public class Main : Control
+public partial class Main : Control
 {
 	private UMLParser parser;
 	private CodeEditor codeEditor;
@@ -11,14 +11,14 @@ public class Main : Control
 	public override void _Ready()
 	{
 		parser = new UMLParser();
-		parser.Connect(nameof(UMLParser.ErrorOccurred), this, nameof(OnParserError));
+		parser.Connect(nameof(UMLParser.ErrorOccurred), new Callable(this, nameof(OnParserError)));
 
 		codeEditor = GetNode<CodeEditor>("%CodeEditor");
-		codeEditor.Connect(nameof(CodeEditor.CodeChanged), this, nameof(OnCodeChanged));
+		codeEditor.Connect(nameof(CodeEditor.CodeChanged), new Callable(this, nameof(OnCodeChanged)));
 
 		visualEditor = GetNode<VisualEditor>("%VisualEditor");
-		visualEditor.Connect(nameof(VisualEditor.NodeNameChanged), this, nameof(OnNodeNameChanged));
-		visualEditor.Connect(nameof(VisualEditor.NodePositionChanged), this, nameof(OnNodePositionChanged));
+		visualEditor.Connect(nameof(VisualEditor.NodeNameChanged), new Callable(this, nameof(OnNodeNameChanged)));
+		visualEditor.Connect(nameof(VisualEditor.NodePositionChanged), new Callable(this, nameof(OnNodePositionChanged)));
 	}
 
 	private void OnParserError(string message, int lineNumber)

@@ -1,6 +1,6 @@
 using Godot;
 
-public class UMLRelationship : Resource
+public partial class UMLRelationship : Resource
 {
 	public UMLRelationship(UMLNode from, UMLNode to)
 	{

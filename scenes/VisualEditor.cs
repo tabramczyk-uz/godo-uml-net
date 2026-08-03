@@ -2,7 +2,7 @@ using Godot;
 using System.Collections.Generic;
 using System.Diagnostics;
 
-public class VisualEditor : Control
+public partial class VisualEditor : Control
 {
 	[Signal]
 	public delegate void NodeNameChanged(UMLNode node, string newName);
@@ -43,8 +43,8 @@ public class VisualEditor : Control
 			UMLNodeContainer fromContainer = containers[relationship.From];
 			UMLNodeContainer toContainer = containers[relationship.To];
 
-			Vector2 fromPosition = fromContainer.GetConnectionPointPosition() - RectGlobalPosition;
-			Vector2 toPosition = toContainer.GetConnectionPointPosition() - RectGlobalPosition;
+			Vector2 fromPosition = fromContainer.GetConnectionPointPosition() - GlobalPosition;
+			Vector2 toPosition = toContainer.GetConnectionPointPosition() - GlobalPosition;
 
 			DrawLine(fromPosition, toPosition, Colors.White, 2.0f, true);
 		}
@@ -63,32 +63,32 @@ public class VisualEditor : Control
 			{
 				if (Input.IsActionJustPressed("ZoomIn"))
 				{
-					anchor.RectScale *= 1.1f;
+					anchor.Scale *= 1.1f;
 				}
 				else if (Input.IsActionJustPressed("ZoomOut"))
 				{
-					anchor.RectScale *= 0.9f;
+					anchor.Scale *= 0.9f;
 				}
 			}
 			// TODO: Make scrolling smoother on touchpads
 			else if (Input.IsActionJustPressed("ScrollUp"))
 			{
-				anchor.RectPosition += ScrollSensitivity * Vector2.Up;
+				anchor.Position += ScrollSensitivity * Vector2.Up;
                 Update();
 			}
 			else if (Input.IsActionJustPressed("ScrollDown"))
 			{
-				anchor.RectPosition += ScrollSensitivity * Vector2.Down;
+				anchor.Position += ScrollSensitivity * Vector2.Down;
                 Update();
 			}
 			else if (Input.IsActionJustPressed("ScrollLeft"))
 			{
-				anchor.RectPosition += ScrollSensitivity * Vector2.Left;
+				anchor.Position += ScrollSensitivity * Vector2.Left;
                 Update();
 			}
 			else if (Input.IsActionJustPressed("ScrollRight"))
 			{
-				anchor.RectPosition += ScrollSensitivity * Vector2.Right;
+				anchor.Position += ScrollSensitivity * Vector2.Right;
                 Update();
 			}
 		}
@@ -96,7 +96,7 @@ public class VisualEditor : Control
 		{
 			if (Input.IsActionPressed("Drag") || Input.IsActionPressed("AltDrag"))
 			{
-				anchor.RectPosition += motionEvent.Relative / anchor.RectScale;
+				anchor.Position += motionEvent.Relative / anchor.Scale;
                 MouseDefaultCursorShape = CursorShape.Drag;
 			} 
             else
@@ -155,9 +155,9 @@ public class VisualEditor : Control
 
 		anchor.AddChild(nodeContainer);
 		nodeContainer.UmlNode = node;
-        nodeContainer.Connect(nameof(UMLNodeContainer.Dragged), this, nameof(OnNodeContainerDragged));
-		nodeContainer.Connect(nameof(UMLNodeContainer.Dropped), this, nameof(OnNodeContainerDropped));
-		nodeContainer.Connect(nameof(UMLNodeContainer.NameChanged), this, nameof(OnNodeContainerNameChanged));
+        nodeContainer.Connect(nameof(UMLNodeContainer.Dragged), new Callable(this, nameof(OnNodeContainerDragged)));
+		nodeContainer.Connect(nameof(UMLNodeContainer.Dropped), new Callable(this, nameof(OnNodeContainerDropped)));
+		nodeContainer.Connect(nameof(UMLNodeContainer.NameChanged), new Callable(this, nameof(OnNodeContainerNameChanged)));
 		containers[node] = nodeContainer;
 	}
 
@@ -180,7 +180,7 @@ public class VisualEditor : Control
         }
 
         draggedNodeContainer = container;
-        container.RectPosition += delta;
+        container.Position += delta;
         Update();
     }
 
@@ -192,7 +192,7 @@ public class VisualEditor : Control
         }
 
         draggedNodeContainer = null;
-        EmitSignal(nameof(NodePositionChanged), container.UmlNode, container.RectPosition);
+        EmitSignal(nameof(NodePositionChanged), container.UmlNode, container.Position);
     }
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)

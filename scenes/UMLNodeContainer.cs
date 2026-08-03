@@ -1,6 +1,6 @@
 using Godot;
 
-public class UMLNodeContainer : Control
+public partial class UMLNodeContainer : Control
 {
     [Signal]
     public delegate void Dragged(UMLNodeContainer node, Vector2 delta);
@@ -20,8 +20,8 @@ public class UMLNodeContainer : Control
         set 
         {
             umlNode = value;
-            nameLabel.BbcodeText = $"[center][b]{value.Name}[/b][/center]";
-            RectPosition = value.Position;
+            nameLabel.Text = $"[center][b]{value.Name}[/b][/center]";
+            Position = value.Position;
         }
     }
 
@@ -36,9 +36,9 @@ public class UMLNodeContainer : Control
         nameLabel = GetNode<RichTextLabel>("%Name");
         editPopup = GetNode<EditPopup>("%EditPopup");
 
-        nameLabel.BbcodeText = $"[center][b]{umlNode.Name}[/b][/center]";
-        nameLabel.Connect("gui_input", this, nameof(OnNameLabelInput));
-        editPopup.Connect(nameof(EditPopup.EditFinished), this, nameof(OnEditFinished));
+        nameLabel.Text = $"[center][b]{umlNode.Name}[/b][/center]";
+        nameLabel.Connect("gui_input", new Callable(this, nameof(OnNameLabelInput)));
+        editPopup.Connect(nameof(EditPopup.EditFinished), new Callable(this, nameof(OnEditFinished)));
     }
 
     public override void _Input(InputEvent @event)
@@ -59,7 +59,7 @@ public class UMLNodeContainer : Control
             else
             {
                 isHeld = false;
-                if (RectPosition != umlNode.Position)
+                if (Position != umlNode.Position)
                 {
                     EmitSignal(nameof(Dropped), this);
                 }

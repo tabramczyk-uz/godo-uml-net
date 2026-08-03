@@ -1,19 +1,19 @@
 using Godot;
 
-public class EditPopup : LineEdit
+public partial class EditPopup : LineEdit
 {
     [Signal]
     public delegate void EditFinished(string newText);
 
     public override void _Ready()
     {
-        Connect("focus_exited", this, nameof(OnFocusExited));
+        Connect("focus_exited", new Callable(this, nameof(OnFocusExited)));
     }
 
     public void ShowAtMousePosition(string originalText)
     {
         Text = originalText;
-        RectPosition = GetViewport().GetMousePosition();
+        Position = GetViewport().GetMousePosition();
         Show();
         GrabFocus();
         SelectAll();

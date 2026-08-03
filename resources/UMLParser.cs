@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-public class UMLParser : Node
+public partial class UMLParser : Node
 {
 	[Signal]
 	public delegate void ErrorOccurred(string message, int lineNumber);

@@ -1,6 +1,6 @@
 using Godot;
 
-public class UMLNode : Resource
+public partial class UMLNode : Resource
 {
 	public UMLNode(string name = "Node", Vector2? position = null)
 	{

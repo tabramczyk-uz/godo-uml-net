@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-public class UMLClass : UMLNode
+public partial class UMLClass : UMLNode
 {
 	public UMLClass(string name = "Class", List<UMLAttribute> attributes = null, List<UMLMethod> methods = null) : base(name)
 	{

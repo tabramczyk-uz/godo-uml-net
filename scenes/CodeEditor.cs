@@ -1,6 +1,6 @@
 using Godot;
 
-public class CodeEditor : Control
+public partial class CodeEditor : Control
 {
 	[Signal]
 	public delegate void CodeChanged(string code);
@@ -28,8 +28,8 @@ public class CodeEditor : Control
 		errorContainer = GetNode<MarginContainer>("%ErrorContainer");
 		errorLabel = GetNode<RichTextLabel>("%ErrorLabel");
 
-		codeEdit.Connect("text_changed", this, nameof(OnTextChanged));
-		updateTimer.Connect("timeout", this, nameof(SubmitCode));
+		codeEdit.Connect("text_changed", new Callable(this, nameof(OnTextChanged)));
+		updateTimer.Connect("timeout", new Callable(this, nameof(SubmitCode)));
 
 		codeEdit.AddColorRegion("\"", "\"", StringColor, false);
 		codeEdit.AddColorRegion(UMLParser.CommentPrefix, "", CommentColor, true);

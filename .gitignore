@@ -4,6 +4,9 @@ export.cfg
 export_credentials.cfg
 *.tmp
 
+# Godot 4-specific ignores
+.godot/
+
 # Imported translations (automatically generated from CSV files)
 *.translation
 
