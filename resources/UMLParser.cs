@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 public partial class UMLParser : Node
 {
 	[Signal]
-	public delegate void ErrorOccurred(string message, int lineNumber);
+	public delegate void ErrorOccurredEventHandler(string message, int lineNumber);
 
 	public enum Visibility
 	{
@@ -86,13 +86,13 @@ public partial class UMLParser : Node
 						NodeProperty property = GetPropertyTypeFromName(propertyName);
 						if (property == NodeProperty.Unknown)
 						{
-							EmitSignal(nameof(ErrorOccurred), $"Unknown property: {propertyName}", lineNumber);
+							EmitSignal(SignalName.ErrorOccurred, "Unknown property: {propertyName}", lineNumber);
 							return null;
 						}
 
 						if (currentNodeSetProperties.Contains(property))
 						{
-							EmitSignal(nameof(ErrorOccurred), $"Duplicate property: {propertyName}", lineNumber);
+							EmitSignal(SignalName.ErrorOccurred, $"Duplicate property: {propertyName}", lineNumber);
 							return null;
 						}
 
@@ -110,17 +110,17 @@ public partial class UMLParser : Node
 									continue;
 								}
 
-								EmitSignal(nameof(ErrorOccurred), "Invalid position format", lineNumber);
+								EmitSignal(SignalName.ErrorOccurred, "Invalid position format", lineNumber);
 								return null;
 						}
 					}
 
-					EmitSignal(nameof(ErrorOccurred), "Invalid property syntax", lineNumber);
+					EmitSignal(SignalName.ErrorOccurred, "Invalid property syntax", lineNumber);
 					return null;
 				}
 				else
 				{
-					EmitSignal(nameof(ErrorOccurred), "Unexpected indentation", lineNumber);
+					EmitSignal(SignalName.ErrorOccurred, "Unexpected indentation", lineNumber);
 					return null;
 				}
 			}
@@ -133,7 +133,7 @@ public partial class UMLParser : Node
 
 				if (takenNodeNames.Contains(nodeName))
 				{
-					EmitSignal(nameof(ErrorOccurred), $"Duplicate node: {nodeName}", lineNumber);
+					EmitSignal(SignalName.ErrorOccurred, $"Duplicate node: {nodeName}", lineNumber);
 					return null;
 				}
 
@@ -147,7 +147,7 @@ public partial class UMLParser : Node
 						currentNode = new UMLClass(nodeName);
 						break;
 					default:
-						EmitSignal(nameof(ErrorOccurred), $"Unknown node type: {nodeTypeName}", lineNumber);
+						EmitSignal(SignalName.ErrorOccurred, $"Unknown node type: {nodeTypeName}", lineNumber);
 						return null;
 				}
 
@@ -167,13 +167,13 @@ public partial class UMLParser : Node
 
 				if (fromNode == null)
 				{
-					EmitSignal(nameof(ErrorOccurred), $"Unknown node: {fromNodeName}", lineNumber);
+					EmitSignal(SignalName.ErrorOccurred, $"Unknown node: {fromNodeName}", lineNumber);
 					return null;
 				}
 
 				if (toNode == null)
 				{
-					EmitSignal(nameof(ErrorOccurred), $"Unknown node: {toNodeName}", lineNumber);
+					EmitSignal(SignalName.ErrorOccurred, $"Unknown node: {toNodeName}", lineNumber);
 					return null;
 				}
 
@@ -181,7 +181,7 @@ public partial class UMLParser : Node
 				continue;
 			}
 
-			EmitSignal(nameof(ErrorOccurred), "Syntax error", lineNumber);
+			EmitSignal(SignalName.ErrorOccurred, "Syntax error", lineNumber);
 			return null;
 		}
 
@@ -215,8 +215,8 @@ public partial class UMLParser : Node
 	public static string ChangeNodePosition(string code, UMLNode node, Vector2 newPosition)
 	{
 		string propertyName = NodePropertyNames[NodeProperty.Position];
-		string xPosition = ToStringWithoutTrailingZeroes(newPosition.x);
-		string yPosition = ToStringWithoutTrailingZeroes(newPosition.y);
+		string xPosition = ToStringWithoutTrailingZeroes(newPosition.X);
+		string yPosition = ToStringWithoutTrailingZeroes(newPosition.Y);
 
 		int declarationLineNumber = FindNodeDeclaration(code, node);
 		if (declarationLineNumber == -1)

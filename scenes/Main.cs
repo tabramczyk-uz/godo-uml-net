@@ -11,14 +11,14 @@ public partial class Main : Control
 	public override void _Ready()
 	{
 		parser = new UMLParser();
-		parser.Connect(nameof(UMLParser.ErrorOccurred), new Callable(this, nameof(OnParserError)));
+		parser.ErrorOccurred += OnParserError;
 
 		codeEditor = GetNode<CodeEditor>("%CodeEditor");
-		codeEditor.Connect(nameof(CodeEditor.CodeChanged), new Callable(this, nameof(OnCodeChanged)));
+		codeEditor.CodeChanged += OnCodeChanged;
 
 		visualEditor = GetNode<VisualEditor>("%VisualEditor");
-		visualEditor.Connect(nameof(VisualEditor.NodeNameChanged), new Callable(this, nameof(OnNodeNameChanged)));
-		visualEditor.Connect(nameof(VisualEditor.NodePositionChanged), new Callable(this, nameof(OnNodePositionChanged)));
+		visualEditor.NodeNameChanged += OnNodeNameChanged;
+		visualEditor.NodePositionChanged += OnNodePositionChanged;
 	}
 
 	private void OnParserError(string message, int lineNumber)

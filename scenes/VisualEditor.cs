@@ -5,10 +5,10 @@ using System.Diagnostics;
 public partial class VisualEditor : Control
 {
 	[Signal]
-	public delegate void NodeNameChanged(UMLNode node, string newName);
+	public delegate void NodeNameChangedEventHandler(UMLNode node, string newName);
 
 	[Signal]
-	public delegate void NodePositionChanged(UMLNode node, Vector2 newPosition);
+	public delegate void NodePositionChangedEventHandler(UMLNode node, Vector2 newPosition);
 
 	private static readonly PackedScene UmlClassContainer = GD.Load<PackedScene>("res://scenes/UMLClassContainer.tscn");
 	private static readonly PackedScene UmlNodeContainer = GD.Load<PackedScene>("res://scenes/UMLNodeContainer.tscn");
@@ -74,22 +74,22 @@ public partial class VisualEditor : Control
 			else if (Input.IsActionJustPressed("ScrollUp"))
 			{
 				anchor.Position += ScrollSensitivity * Vector2.Up;
-                Update();
+                QueueRedraw();
 			}
 			else if (Input.IsActionJustPressed("ScrollDown"))
 			{
 				anchor.Position += ScrollSensitivity * Vector2.Down;
-                Update();
+                QueueRedraw();
 			}
 			else if (Input.IsActionJustPressed("ScrollLeft"))
 			{
 				anchor.Position += ScrollSensitivity * Vector2.Left;
-                Update();
+                QueueRedraw();
 			}
 			else if (Input.IsActionJustPressed("ScrollRight"))
 			{
 				anchor.Position += ScrollSensitivity * Vector2.Right;
-                Update();
+                QueueRedraw();
 			}
 		}
 		else if (@event is InputEventMouseMotion motionEvent)
@@ -104,7 +104,7 @@ public partial class VisualEditor : Control
                 MouseDefaultCursorShape = CursorShape.Arrow;
             }
 
-			Update();
+			QueueRedraw();
 		}
 	}
 
@@ -132,7 +132,7 @@ public partial class VisualEditor : Control
 			AddUmlNode(node);
 		}
 
-		Update();
+		QueueRedraw();
 	}
 
 	private void AddUmlNode(UMLNode node)
@@ -143,10 +143,10 @@ public partial class VisualEditor : Control
 		switch (nodeType)
 		{
 			case UMLParser.NodeType.Class:
-				nodeContainer = (UMLNodeContainer)UmlClassContainer.Instance();
+				nodeContainer = (UMLNodeContainer)UmlClassContainer.Instantiate();
 				break;
 			case UMLParser.NodeType.Node:
-				nodeContainer = (UMLNodeContainer)UmlNodeContainer.Instance();
+				nodeContainer = (UMLNodeContainer)UmlNodeContainer.Instantiate();
 				break;
 			default:
 				GD.PushError($"Unknown node type for UMLNode: {node.Name}");
@@ -155,9 +155,9 @@ public partial class VisualEditor : Control
 
 		anchor.AddChild(nodeContainer);
 		nodeContainer.UmlNode = node;
-        nodeContainer.Connect(nameof(UMLNodeContainer.Dragged), new Callable(this, nameof(OnNodeContainerDragged)));
-		nodeContainer.Connect(nameof(UMLNodeContainer.Dropped), new Callable(this, nameof(OnNodeContainerDropped)));
-		nodeContainer.Connect(nameof(UMLNodeContainer.NameChanged), new Callable(this, nameof(OnNodeContainerNameChanged)));
+		nodeContainer.Dragged += OnNodeContainerDragged;
+		nodeContainer.Dropped += OnNodeContainerDropped;
+		nodeContainer.NameChanged += OnNodeContainerNameChanged;
 		containers[node] = nodeContainer;
 	}
 
@@ -181,7 +181,7 @@ public partial class VisualEditor : Control
 
         draggedNodeContainer = container;
         container.Position += delta;
-        Update();
+        QueueRedraw();
     }
 
     private void OnNodeContainerDropped(UMLNodeContainer container)
@@ -192,11 +192,11 @@ public partial class VisualEditor : Control
         }
 
         draggedNodeContainer = null;
-        EmitSignal(nameof(NodePositionChanged), container.UmlNode, container.Position);
+        EmitSignal(SignalName.NodePositionChanged, container.UmlNode, container.Position);
     }
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)
 	{
-		EmitSignal(nameof(NodeNameChanged), node, newName);
+		EmitSignal(SignalName.NodeNameChanged, node, newName);
 	}
 }

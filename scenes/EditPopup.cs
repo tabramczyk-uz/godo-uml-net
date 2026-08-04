@@ -3,11 +3,11 @@ using Godot;
 public partial class EditPopup : LineEdit
 {
     [Signal]
-    public delegate void EditFinished(string newText);
+    public delegate void EditFinishedEventHandler(string newText);
 
     public override void _Ready()
     {
-        Connect("focus_exited", new Callable(this, nameof(OnFocusExited)));
+        FocusExited += OnFocusExited;
     }
 
     public void ShowAtMousePosition(string originalText)
@@ -30,7 +30,7 @@ public partial class EditPopup : LineEdit
         {
             if (this.Visible && keyEvent.IsActionPressed("Submit"))
             {
-                EmitSignal(nameof(EditFinished), Text);
+                EmitSignal(SignalName.EditFinished, Text);
                 Hide();
             }
             else if (keyEvent.IsActionPressed("Cancel")) 

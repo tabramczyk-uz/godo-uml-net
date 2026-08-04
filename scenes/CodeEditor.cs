@@ -3,7 +3,7 @@ using Godot;
 public partial class CodeEditor : Control
 {
 	[Signal]
-	public delegate void CodeChanged(string code);
+	public delegate void CodeChangedEventHandler(string code);
 
 	[Export]
 	public Color StringColor { get; set; } = new Color();
@@ -28,16 +28,13 @@ public partial class CodeEditor : Control
 		errorContainer = GetNode<MarginContainer>("%ErrorContainer");
 		errorLabel = GetNode<RichTextLabel>("%ErrorLabel");
 
-		codeEdit.Connect("text_changed", new Callable(this, nameof(OnTextChanged)));
-		updateTimer.Connect("timeout", new Callable(this, nameof(SubmitCode)));
-
-		codeEdit.AddColorRegion("\"", "\"", StringColor, false);
-		codeEdit.AddColorRegion(UMLParser.CommentPrefix, "", CommentColor, true);
+		codeEdit.TextChanged += OnTextChanged;
+		updateTimer.Timeout += SubmitCode;
 	}
 
 	private void SubmitCode()
 	{
-		EmitSignal(nameof(CodeChanged), codeEdit.Text);
+		EmitSignal(SignalName.CodeChanged, codeEdit.Text);
 	}
 
 	public void ChangeNodeName(UMLNode node, string newName)
@@ -56,10 +53,10 @@ public partial class CodeEditor : Control
 	{
 		if (errorLine != -1)
 		{
-			codeEdit.SetLineAsBreakpoint(errorLine, false);
+			codeEdit.SetLineBackgroundColor(errorLine, new Color(0, 0, 0, 0));
 		}
 
-		codeEdit.SetLineAsBreakpoint(lineNumber, true);
+		codeEdit.SetLineBackgroundColor(errorLine, ErrorColor);
 		errorLabel.Text = $"Error on line {lineNumber + 1}: {message}";
 		errorContainer.Show();
 		errorLine = lineNumber;
@@ -69,7 +66,7 @@ public partial class CodeEditor : Control
 	{
 		if (errorLine != -1 && errorLine < codeEdit.GetLineCount())
 		{
-			codeEdit.SetLineAsBreakpoint(errorLine, false);
+			codeEdit.SetLineBackgroundColor(errorLine, new Color(0, 0, 0, 0));
 		}
 
 		errorContainer.Hide();

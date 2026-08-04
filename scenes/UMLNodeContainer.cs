@@ -3,13 +3,13 @@ using Godot;
 public partial class UMLNodeContainer : Control
 {
     [Signal]
-    public delegate void Dragged(UMLNodeContainer node, Vector2 delta);
+    public delegate void DraggedEventHandler(UMLNodeContainer node, Vector2 delta);
 
     [Signal]
-    public delegate void Dropped(UMLNodeContainer node);
+    public delegate void DroppedEventHandler(UMLNodeContainer node);
 
     [Signal]
-    public delegate void NameChanged(UMLNode node, string newName);
+    public delegate void NameChangedEventHandler(UMLNode node, string newName);
 
     private UMLNode umlNode = new UMLNode();
     public UMLNode UmlNode { 
@@ -37,8 +37,8 @@ public partial class UMLNodeContainer : Control
         editPopup = GetNode<EditPopup>("%EditPopup");
 
         nameLabel.Text = $"[center][b]{umlNode.Name}[/b][/center]";
-        nameLabel.Connect("gui_input", new Callable(this, nameof(OnNameLabelInput)));
-        editPopup.Connect(nameof(EditPopup.EditFinished), new Callable(this, nameof(OnEditFinished)));
+        nameLabel.GuiInput += OnNameLabelInput;
+        editPopup.EditFinished += OnEditFinished;
     }
 
     public override void _Input(InputEvent @event)
@@ -51,7 +51,7 @@ public partial class UMLNodeContainer : Control
         if (@event is InputEventMouseButton mouseEvent)
         {
             if (mouseEvent.Pressed
-            && mouseEvent.ButtonIndex == ((int)ButtonList.Left)
+            && mouseEvent.ButtonIndex == MouseButton.Left
             && GetGlobalRect().HasPoint(mouseEvent.Position))
             {
                 isHeld = true;
@@ -61,7 +61,7 @@ public partial class UMLNodeContainer : Control
                 isHeld = false;
                 if (Position != umlNode.Position)
                 {
-                    EmitSignal(nameof(Dropped), this);
+                    EmitSignal(SignalName.Dropped, this);
                 }
             }
         }
@@ -69,7 +69,7 @@ public partial class UMLNodeContainer : Control
         {
             if (isHeld)
             {
-                EmitSignal(nameof(Dragged), this, motionEvent.Relative);
+                EmitSignal(SignalName.Dragged, this, motionEvent.Relative);
             }
         }
     }
@@ -88,8 +88,8 @@ public partial class UMLNodeContainer : Control
     {
         if (@event is InputEventMouseButton mouseEvent &&
             mouseEvent.Pressed &&
-            mouseEvent.Doubleclick &&
-            mouseEvent.ButtonIndex == ((int)ButtonList.Left))
+            mouseEvent.DoubleClick &&
+            mouseEvent.ButtonIndex == MouseButton.Left)
         {
             editPopup.ShowAtMousePosition(umlNode.Name);
         }
@@ -97,6 +97,6 @@ public partial class UMLNodeContainer : Control
 
     private void OnEditFinished(string newName)
     {
-        EmitSignal(nameof(NameChanged), umlNode, newName);
+        EmitSignal(SignalName.NameChanged, umlNode, newName);
     }
 }
