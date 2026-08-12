@@ -139,13 +139,13 @@ public partial class VisualEditor : Control
 	{
 		UMLNodeContainer nodeContainer = null;
 
-		UMLParser.NodeType nodeType = UMLParser.GetNodeType(node);
+		UMLNodeType nodeType = UMLSyntax.GetNodeType(node);
 		switch (nodeType)
 		{
-			case UMLParser.NodeType.Class:
+			case UMLNodeType.Class:
 				nodeContainer = (UMLNodeContainer)UmlClassContainer.Instantiate();
 				break;
-			case UMLParser.NodeType.Node:
+			case UMLNodeType.Node:
 				nodeContainer = (UMLNodeContainer)UmlNodeContainer.Instantiate();
 				break;
 			default:

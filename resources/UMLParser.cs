@@ -1,367 +1,167 @@
 using Godot;
-using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-public partial class UMLParser : Node
+/// <summary>
+/// Turns UML source code into a <see cref="UMLDiagram"/>. Parsing stops at the first error.
+/// One instance holds the state of one parse; use the static <see cref="Parse"/> entry point.
+/// </summary>
+public sealed class UMLParser
 {
-	[Signal]
-	public delegate void ErrorOccurredEventHandler(string message, int lineNumber);
+	private readonly UMLDiagram diagram = new UMLDiagram();
+	private readonly Dictionary<string, UMLNode> nodesByName = new Dictionary<string, UMLNode>();
+	private readonly HashSet<UMLNodeProperty> currentNodeProperties = new HashSet<UMLNodeProperty>();
 
-	public enum Visibility
+	private UMLNode currentNode;
+	private int lineNumber;
+	private string errorMessage;
+
+	private UMLParser()
 	{
-		Unknown,
-		Public,
-		Private,
-		Package,
-		Protected
 	}
 
-	public enum NodeType
+	public static UMLParseResult Parse(string code)
 	{
-		Unknown,
-		Node,
-		Class
+		return new UMLParser().Run(code);
 	}
 
-	public enum NodeProperty
-	{
-		Unknown,
-		Position
-	}
-
-	public const string CommentPrefix = "//";
-
-	private static readonly Regex NodeRegex = new Regex(@"([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)", RegexOptions.Compiled);
-	private static readonly Dictionary<NodeType, string> NodeTypeNames = new Dictionary<NodeType, string>
-	{
-		{ NodeType.Node, "node" },
-		{ NodeType.Class, "class" }
-	};
-
-	private static readonly Regex PropertyRegex = new Regex(@"\t([a-zA-Z_][a-zA-Z0-9_]*):\s*(.+)", RegexOptions.Compiled);
-	private static readonly Dictionary<NodeProperty, string> NodePropertyNames = new Dictionary<NodeProperty, string>
-	{
-		{ NodeProperty.Position, "position" }
-	};
-
-	private static readonly Regex RelationshipRegex = new Regex(@"([a-zA-Z_][a-zA-Z0-9_]*)\s*(->|<-|[\-\.]{1,2}|[<>]{1,2}|[oO]{1,2})\s*([a-zA-Z_][a-zA-Z0-9_]*)", RegexOptions.Compiled);
-	private static readonly Regex PositionRegex = new Regex(@"\[\s*([\-+]?\d*\.?\d+)\s*,\s*([\-+]?\d*\.?\d+)\s*\]", RegexOptions.Compiled);
-
-	public UMLDiagram ParseCode(string code)
-	{
-		var diagram = new UMLDiagram();
-
-		string[] lines = code.Split('\n');
-		int lineNumber = -1;
-		UMLNode currentNode = null;
-		var currentNodeSetProperties = new HashSet<NodeProperty>();
-		var takenNodeNames = new HashSet<string>();
-
-		foreach (string rawLine in lines)
-		{
-			lineNumber += 1;
-			string line = StripEndEdgesAndComments(rawLine);
-
-			if (string.IsNullOrWhiteSpace(line))
-				continue;
-
-			if (currentNode != null)
-			{
-				int indentLevel = GetLineIndentation(line);
-				if (indentLevel == 0)
-				{
-					currentNode = null;
-					currentNodeSetProperties.Clear();
-				}
-				else if (indentLevel == 1)
-				{
-					Match propertyMatch = PropertyRegex.Match(line);
-					if (propertyMatch.Success)
-					{
-						string propertyName = propertyMatch.Groups[1].Value;
-						string propertyValue = propertyMatch.Groups[2].Value;
-
-						NodeProperty property = GetPropertyTypeFromName(propertyName);
-						if (property == NodeProperty.Unknown)
-						{
-							EmitSignal(SignalName.ErrorOccurred, "Unknown property: {propertyName}", lineNumber);
-							return null;
-						}
-
-						if (currentNodeSetProperties.Contains(property))
-						{
-							EmitSignal(SignalName.ErrorOccurred, $"Duplicate property: {propertyName}", lineNumber);
-							return null;
-						}
-
-						currentNodeSetProperties.Add(property);
-
-						switch (property)
-						{
-							case NodeProperty.Position:
-								Match positionMatch = PositionRegex.Match(propertyValue);
-								if (positionMatch.Success)
-								{
-									float x = float.Parse(positionMatch.Groups[1].Value, CultureInfo.InvariantCulture);
-									float y = float.Parse(positionMatch.Groups[2].Value, CultureInfo.InvariantCulture);
-									currentNode.Position = new Vector2(x, y);
-									continue;
-								}
-
-								EmitSignal(SignalName.ErrorOccurred, "Invalid position format", lineNumber);
-								return null;
-						}
-					}
-
-					EmitSignal(SignalName.ErrorOccurred, "Invalid property syntax", lineNumber);
-					return null;
-				}
-				else
-				{
-					EmitSignal(SignalName.ErrorOccurred, "Unexpected indentation", lineNumber);
-					return null;
-				}
-			}
-
-			Match nodeRegexMatch = NodeRegex.Match(line);
-			if (nodeRegexMatch.Success)
-			{
-				string nodeTypeName = nodeRegexMatch.Groups[1].Value;
-				string nodeName = nodeRegexMatch.Groups[2].Value;
-
-				if (takenNodeNames.Contains(nodeName))
-				{
-					EmitSignal(SignalName.ErrorOccurred, $"Duplicate node: {nodeName}", lineNumber);
-					return null;
-				}
-
-				NodeType nodeType = GetNodeTypeFromName(nodeTypeName);
-				switch (nodeType)
-				{
-					case NodeType.Node:
-						currentNode = new UMLNode(nodeName);
-						break;
-					case NodeType.Class:
-						currentNode = new UMLClass(nodeName);
-						break;
-					default:
-						EmitSignal(SignalName.ErrorOccurred, $"Unknown node type: {nodeTypeName}", lineNumber);
-						return null;
-				}
-
-				diagram.Nodes.Add(currentNode);
-				takenNodeNames.Add(nodeName);
-				continue;
-			}
-
-			Match relationshipRegexMatch = RelationshipRegex.Match(line);
-			if (relationshipRegexMatch.Success)
-			{
-				string fromNodeName = relationshipRegexMatch.Groups[1].Value;
-				string toNodeName = relationshipRegexMatch.Groups[3].Value;
-
-				UMLNode fromNode = GetNodeByName(diagram, fromNodeName);
-				UMLNode toNode = GetNodeByName(diagram, toNodeName);
-
-				if (fromNode == null)
-				{
-					EmitSignal(SignalName.ErrorOccurred, $"Unknown node: {fromNodeName}", lineNumber);
-					return null;
-				}
-
-				if (toNode == null)
-				{
-					EmitSignal(SignalName.ErrorOccurred, $"Unknown node: {toNodeName}", lineNumber);
-					return null;
-				}
-
-				diagram.Relationships.Add(new UMLRelationship(fromNode, toNode));
-				continue;
-			}
-
-			EmitSignal(SignalName.ErrorOccurred, "Syntax error", lineNumber);
-			return null;
-		}
-
-		return diagram;
-	}
-
-	public static string ChangeNodeName(string code, UMLNode node, string newName)
+	private UMLParseResult Run(string code)
 	{
 		string[] lines = code.Split('\n');
-
-		for (int i = 0; i < lines.Length; i++)
+		for (lineNumber = 0; lineNumber < lines.Length; lineNumber++)
 		{
-			string line = lines[i];
-			int commentIndex = line.IndexOf(CommentPrefix, StringComparison.Ordinal);
-
-			if (commentIndex >= 0)
+			if (!ParseLine(UMLSyntax.StripComment(lines[lineNumber])))
 			{
-				string codePart = line.Substring(0, commentIndex).Replace(node.Name, newName);
-				string commentPart = line.Substring(commentIndex);
-				lines[i] = codePart + commentPart;
-			}
-			else
-			{
-				lines[i] = line.Replace(node.Name, newName);
+				return UMLParseResult.Failure(errorMessage, lineNumber);
 			}
 		}
 
-		return string.Join("\n", lines);
+		return UMLParseResult.Success(diagram);
 	}
 
-	public static string ChangeNodePosition(string code, UMLNode node, Vector2 newPosition)
+	private bool ParseLine(string line)
 	{
-		string propertyName = NodePropertyNames[NodeProperty.Position];
-		string xPosition = ToStringWithoutTrailingZeroes(newPosition.X);
-		string yPosition = ToStringWithoutTrailingZeroes(newPosition.Y);
-
-		int declarationLineNumber = FindNodeDeclaration(code, node);
-		if (declarationLineNumber == -1)
+		if (string.IsNullOrWhiteSpace(line))
 		{
-			GD.PushError($"Node declaration not found for node: {node.Name}");
-			return code;
+			return true;
 		}
 
-		var lines = new List<string>(code.Split('\n'));
-		for (int i = declarationLineNumber + 1; i < lines.Count; i++)
+		int indentation = UMLSyntax.GetIndentation(line);
+		string content = line.Substring(indentation);
+
+		if (indentation == 0)
 		{
-			string line = lines[i];
-			string strippedLine = StripEndEdgesAndComments(line);
-			if (string.IsNullOrWhiteSpace(strippedLine))
-			{
-				continue;
-			}
-
-			if (GetLineIndentation(strippedLine) != 1)
-			{
-				break;
-			}
-
-			Match positionRegexMatch = PositionRegex.Match(strippedLine);
-			if (positionRegexMatch.Success)
-			{
-				lines[i] = $"\t{propertyName}: [{xPosition}, {yPosition}]";
-				return string.Join("\n", lines);
-			}
+			currentNode = null;
+			currentNodeProperties.Clear();
+			return ParseDeclaration(content);
 		}
 
-		lines.Insert(declarationLineNumber + 1, $"\t{propertyName}: [{xPosition}, {yPosition}]");
-		return string.Join("\n", lines);
-	}
-
-	public bool IsNodeNameValid(string name)
-	{
-		return NodeRegex.IsMatch($"node {name}");
-	}
-
-	private static int FindNodeDeclaration(string code, UMLNode node)
-	{
-		NodeType nodeType = GetNodeType(node);
-		string nodeTypeName = NodeTypeNames[nodeType];
-		var regex = new Regex($"{Regex.Escape(nodeTypeName)}\\s+{Regex.Escape(node.Name)}");
-
-		string[] lines = code.Split('\n');
-		for (int i = 0; i < lines.Length; i++)
+		if (indentation == 1 && currentNode != null)
 		{
-			string strippedLine = StripEndEdgesAndComments(lines[i]);
-			if (string.IsNullOrWhiteSpace(strippedLine))
-			{
-				continue;
-			}
-
-			if (regex.IsMatch(strippedLine))
-			{
-				return i;
-			}
+			return ParseProperty(content);
 		}
 
-		return -1;
+		return Fail("Unexpected indentation");
 	}
 
-	private static int GetLineIndentation(string line)
+	private bool ParseDeclaration(string content)
 	{
-		int indent = 0;
-		foreach (char character in line)
+		Match nodeMatch = UMLSyntax.NodeRegex().Match(content);
+		if (nodeMatch.Success)
 		{
-			if (character == '\t')
-			{
-				indent += 1;
-			}
-			else
-			{
-				break;
-			}
+			return AddNode(nodeMatch.Groups[1].Value, nodeMatch.Groups[2].Value);
 		}
 
-		return indent;
-	}
-
-	private static UMLNode GetNodeByName(UMLDiagram diagram, string nodeName)
-	{
-		foreach (UMLNode node in diagram.Nodes)
+		Match relationshipMatch = UMLSyntax.RelationshipRegex().Match(content);
+		if (relationshipMatch.Success)
 		{
-			if (node.Name == nodeName)
-			{
-				return node;
-			}
+			return AddRelationship(relationshipMatch.Groups[1].Value, relationshipMatch.Groups[3].Value);
 		}
 
-		return null;
+		return Fail("Syntax error");
 	}
 
-	public static NodeType GetNodeType(UMLNode node)
+	private bool AddNode(string typeKeyword, string nodeName)
 	{
-		return node is UMLClass ? NodeType.Class : NodeType.Node;
-	}
-
-	private static NodeType GetNodeTypeFromName(string typeName)
-	{
-		foreach (KeyValuePair<NodeType, string> pair in NodeTypeNames)
+		if (nodesByName.ContainsKey(nodeName))
 		{
-			if (pair.Value == typeName)
-			{
-				return pair.Key;
-			}
+			return Fail($"Duplicate node: {nodeName}");
 		}
 
-		return NodeType.Unknown;
-	}
-
-	private static NodeProperty GetPropertyTypeFromName(string propertyName)
-	{
-		foreach (KeyValuePair<NodeProperty, string> pair in NodePropertyNames)
+		if (!UMLSyntax.TryGetNodeType(typeKeyword, out UMLNodeType nodeType))
 		{
-			if (pair.Value == propertyName)
-			{
-				return pair.Key;
-			}
+			return Fail($"Unknown node type: {typeKeyword}");
 		}
 
-		return NodeProperty.Unknown;
+		currentNode = nodeType == UMLNodeType.Class ? new UMLClass(nodeName) : new UMLNode(nodeName);
+		diagram.Nodes.Add(currentNode);
+		nodesByName.Add(nodeName, currentNode);
+		return true;
 	}
 
-	private static string StripEndEdgesAndComments(string line)
+	private bool AddRelationship(string fromNodeName, string toNodeName)
 	{
-		int commentIndex = line.IndexOf(CommentPrefix, StringComparison.Ordinal);
-		if (commentIndex >= 0)
+		if (!nodesByName.TryGetValue(fromNodeName, out UMLNode fromNode))
 		{
-			line = line.Substring(0, commentIndex);
+			return Fail($"Unknown node: {fromNodeName}");
 		}
 
-		return line.TrimEnd();
+		if (!nodesByName.TryGetValue(toNodeName, out UMLNode toNode))
+		{
+			return Fail($"Unknown node: {toNodeName}");
+		}
+
+		diagram.Relationships.Add(new UMLRelationship(fromNode, toNode));
+		return true;
 	}
 
-	private static string ToStringWithoutTrailingZeroes(float value)
+	private bool ParseProperty(string content)
 	{
-		string strValue = value.ToString(CultureInfo.InvariantCulture);
-		if (strValue.Contains("."))
+		Match propertyMatch = UMLSyntax.PropertyRegex().Match(content);
+		if (!propertyMatch.Success)
 		{
-			strValue = strValue.TrimEnd('0').TrimEnd('.');
+			return Fail("Invalid property syntax");
 		}
 
-		return strValue;
+		string propertyName = propertyMatch.Groups[1].Value;
+		if (!UMLSyntax.TryGetNodeProperty(propertyName, out UMLNodeProperty property))
+		{
+			return Fail($"Unknown property: {propertyName}");
+		}
+
+		if (!currentNodeProperties.Add(property))
+		{
+			return Fail($"Duplicate property: {propertyName}");
+		}
+
+		string propertyValue = propertyMatch.Groups[2].Value;
+		switch (property)
+		{
+			case UMLNodeProperty.Position:
+				return ParsePosition(propertyValue);
+			default:
+				return Fail($"Unhandled property: {propertyName}");
+		}
+	}
+
+	private bool ParsePosition(string propertyValue)
+	{
+		Match positionMatch = UMLSyntax.PositionRegex().Match(propertyValue);
+		if (!positionMatch.Success
+			|| !float.TryParse(positionMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
+			|| !float.TryParse(positionMatch.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float y))
+		{
+			return Fail("Invalid position format");
+		}
+
+		currentNode.Position = new Vector2(x, y);
+		return true;
+	}
+
+	private bool Fail(string message)
+	{
+		errorMessage = message;
+		return false;
 	}
 }

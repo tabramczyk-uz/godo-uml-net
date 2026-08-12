@@ -2,17 +2,11 @@ using Godot;
 
 public partial class Main : Control
 {
-	private UMLParser parser;
 	private CodeEditor codeEditor;
 	private VisualEditor visualEditor;
 
-	private bool hasError = false;
-
 	public override void _Ready()
 	{
-		parser = new UMLParser();
-		parser.ErrorOccurred += OnParserError;
-
 		codeEditor = GetNode<CodeEditor>("%CodeEditor");
 		codeEditor.CodeChanged += OnCodeChanged;
 
@@ -21,22 +15,24 @@ public partial class Main : Control
 		visualEditor.NodePositionChanged += OnNodePositionChanged;
 	}
 
-	private void OnParserError(string message, int lineNumber)
-	{
-		// GD.PrintErr($"Error on line {lineNumber}: {message}");
-		codeEditor.ShowError(message, lineNumber);
-	}
-
 	private void OnCodeChanged(string code)
 	{
-		codeEditor.DismissError();
-		var diagram = parser.ParseCode(code);
-		visualEditor.RenderDiagram(diagram);
+		UMLParseResult result = UMLParser.Parse(code);
+		if (result.IsSuccess)
+		{
+			codeEditor.DismissError();
+		}
+		else
+		{
+			codeEditor.ShowError(result.ErrorMessage, result.ErrorLineNumber);
+		}
+
+		visualEditor.RenderDiagram(result.Diagram);
 	}
 
 	private void OnNodeNameChanged(UMLNode node, string newName)
 	{
-		if (parser.IsNodeNameValid(newName))
+		if (UMLSyntax.IsValidNodeName(newName))
 		{
 			codeEditor.ChangeNodeName(node, newName);
 		}

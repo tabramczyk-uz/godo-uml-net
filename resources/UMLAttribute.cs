@@ -2,7 +2,7 @@ using Godot;
 
 public partial class UMLAttribute : Resource
 {
-	public UMLAttribute(string name = "attribute", string type = "Integer", UMLParser.Visibility visibility = UMLParser.Visibility.Unknown)
+	public UMLAttribute(string name = "attribute", string type = "Integer", UMLVisibility visibility = UMLVisibility.Unknown)
 	{
 		Name = name;
 		Type = type;
@@ -11,5 +11,5 @@ public partial class UMLAttribute : Resource
 
 	public string Name { get; set; }
 	public string Type { get; set; }
-	public UMLParser.Visibility Visibility { get; set; }
+	public UMLVisibility Visibility { get; set; }
 }

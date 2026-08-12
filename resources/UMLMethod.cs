@@ -6,7 +6,7 @@ public partial class UMLMethod : Resource
 	public UMLMethod(
 		string name = "method",
 		string returnType = "void",
-		UMLParser.Visibility visibility = UMLParser.Visibility.Unknown,
+		UMLVisibility visibility = UMLVisibility.Unknown,
 		List<UMLMethodArgument> arguments = null)
 	{
 		Name = name;
@@ -17,6 +17,6 @@ public partial class UMLMethod : Resource
 
 	public string Name { get; set; }
 	public string ReturnType { get; set; }
-	public UMLParser.Visibility Visibility { get; set; }
+	public UMLVisibility Visibility { get; set; }
 	public List<UMLMethodArgument> Arguments { get; set; }
 }

@@ -39,13 +39,13 @@ public partial class CodeEditor : Control
 
 	public void ChangeNodeName(UMLNode node, string newName)
 	{
-		codeEdit.Text = UMLParser.ChangeNodeName(codeEdit.Text, node, newName);
+		codeEdit.Text = UMLCodeWriter.RenameNode(codeEdit.Text, node, newName);
 		SubmitCode();
 	}
 
 	public void ChangeNodePosition(UMLNode node, Vector2 newPosition)
 	{
-		codeEdit.Text = UMLParser.ChangeNodePosition(codeEdit.Text, node, newPosition);
+		codeEdit.Text = UMLCodeWriter.SetNodePosition(codeEdit.Text, node, newPosition);
 		SubmitCode();
 	}
 
