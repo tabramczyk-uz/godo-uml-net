@@ -5,8 +5,8 @@ public partial class UMLDiagram : Resource
 {
 	public UMLDiagram()
 	{
-		Nodes = new List<UMLNode>();
-		Relationships = new List<UMLRelationship>();
+		Nodes = [];
+		Relationships = [];
 	}
 
 	public List<UMLNode> Nodes { get; set; }

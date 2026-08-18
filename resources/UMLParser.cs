@@ -10,9 +10,9 @@ using Godot;
 /// </summary>
 public sealed class UMLParser
 {
-	private readonly UMLDiagram diagram = new UMLDiagram();
-	private readonly Dictionary<string, UMLNode> nodesByName = new Dictionary<string, UMLNode>();
-	private readonly HashSet<UMLNodeProperty> currentNodeProperties = new HashSet<UMLNodeProperty>();
+	private readonly UMLDiagram diagram = new();
+	private readonly Dictionary<string, UMLNode> nodesByName = [];
+	private readonly HashSet<UMLNodeProperty> currentNodeProperties = [];
 
 	private UMLNode currentNode;
 	private int lineNumber;
@@ -47,7 +47,7 @@ public sealed class UMLParser
 		}
 
 		int indentation = UMLSyntax.GetIndentation(line);
-		string content = line.Substring(indentation);
+		string content = line[indentation..];
 
 		if (indentation == 0)
 		{
@@ -135,13 +135,11 @@ public sealed class UMLParser
 		}
 
 		string propertyValue = propertyMatch.Groups[2].Value;
-		switch (property)
+		return property switch
 		{
-			case UMLNodeProperty.Position:
-				return ParsePosition(propertyValue);
-			default:
-				return Fail($"Unhandled property: {propertyName}");
-		}
+			UMLNodeProperty.Position => ParsePosition(propertyValue),
+			_ => Fail($"Unhandled property: {propertyName}"),
+		};
 	}
 
 	private bool ParsePosition(string propertyValue)

@@ -32,10 +32,7 @@ public static partial class UMLSyntax
 		{ UMLNodeType.Class, "class" },
 	};
 
-	private static readonly Dictionary<UMLNodeProperty, string> NodePropertyKeywords = new Dictionary<
-		UMLNodeProperty,
-		string
-	>
+	private static readonly Dictionary<UMLNodeProperty, string> NodePropertyKeywords = new()
 	{
 		{ UMLNodeProperty.Position, "position" },
 	};
@@ -116,8 +113,8 @@ public static partial class UMLSyntax
 			return;
 		}
 
-		code = line.Substring(0, commentIndex);
-		comment = line.Substring(commentIndex);
+		code = line[..commentIndex];
+		comment = line[commentIndex..];
 	}
 
 	/// <summary>

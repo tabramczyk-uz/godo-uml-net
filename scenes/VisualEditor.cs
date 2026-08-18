@@ -25,8 +25,7 @@ public partial class VisualEditor : Control
 
 	private UMLDiagram diagram = null;
 	private UMLNodeContainer draggedNodeContainer = null;
-	private Dictionary<UMLNode, UMLNodeContainer> containers =
-		new Dictionary<UMLNode, UMLNodeContainer>();
+	private readonly Dictionary<UMLNode, UMLNodeContainer> containers = [];
 
 	public override void _Ready()
 	{

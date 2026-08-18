@@ -100,10 +100,10 @@ public static class UMLCodeWriter
 				break;
 			}
 
-			Match propertyMatch = UMLSyntax.PropertyRegex().Match(content.Substring(1));
+			Match propertyMatch = UMLSyntax.PropertyRegex().Match(content[1..]);
 			if (propertyMatch.Success && propertyMatch.Groups[1].Value == positionKeyword)
 			{
-				string separator = codePart.Substring(content.Length);
+				string separator = codePart[content.Length..];
 				lines[i] = comment.Length == 0 ? positionLine : positionLine + separator + comment;
 				return string.Join("\n", lines);
 			}
@@ -136,9 +136,7 @@ public static class UMLCodeWriter
 
 	private static string ReplaceGroup(string line, Group group, string replacement)
 	{
-		return line.Substring(0, group.Index)
-			+ replacement
-			+ line.Substring(group.Index + group.Length);
+		return line[..group.Index] + replacement + line[(group.Index + group.Length)..];
 	}
 
 	private static string FormatCoordinate(float value)

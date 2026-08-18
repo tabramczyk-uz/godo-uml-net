@@ -9,8 +9,8 @@ public partial class UMLClass : UMLNode
 	)
 		: base(name)
 	{
-		Attributes = attributes ?? new List<UMLAttribute>();
-		Methods = methods ?? new List<UMLMethod>();
+		Attributes = attributes ?? [];
+		Methods = methods ?? [];
 	}
 
 	public List<UMLAttribute> Attributes { get; set; }

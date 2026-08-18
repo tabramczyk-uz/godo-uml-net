@@ -13,7 +13,7 @@ public partial class UMLMethod : Resource
 		Name = name;
 		ReturnType = returnType;
 		Visibility = visibility;
-		Arguments = arguments ?? new List<UMLMethodArgument>();
+		Arguments = arguments ?? [];
 	}
 
 	public string Name { get; set; }

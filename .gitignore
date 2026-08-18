@@ -20,3 +20,4 @@ mono_crash.*.json
 
 # Claude Code
 CLAUDE.md
+.claude/
