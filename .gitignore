@@ -17,3 +17,6 @@ mono_crash.*.json
 
 # Visual Studio Code
 .vscode/
+
+# Claude Code
+CLAUDE.md
