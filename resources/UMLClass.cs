@@ -2,7 +2,12 @@ using System.Collections.Generic;
 
 public partial class UMLClass : UMLNode
 {
-	public UMLClass(string name = "Class", List<UMLAttribute> attributes = null, List<UMLMethod> methods = null) : base(name)
+	public UMLClass(
+		string name = "Class",
+		List<UMLAttribute> attributes = null,
+		List<UMLMethod> methods = null
+	)
+		: base(name)
 	{
 		Attributes = attributes ?? new List<UMLAttribute>();
 		Methods = methods ?? new List<UMLMethod>();

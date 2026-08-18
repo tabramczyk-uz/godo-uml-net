@@ -12,12 +12,10 @@ public partial class UMLNodeContainer : Control
     public delegate void NameChangedEventHandler(UMLNode node, string newName);
 
     private UMLNode umlNode = new UMLNode();
-    public UMLNode UmlNode { 
-        get 
-        { 
-            return umlNode; 
-        } 
-        set 
+    public UMLNode UmlNode
+    {
+        get { return umlNode; }
+        set
         {
             umlNode = value;
             nameLabel.Text = $"[center][b]{value.Name}[/b][/center]";
@@ -50,9 +48,11 @@ public partial class UMLNodeContainer : Control
 
         if (@event is InputEventMouseButton mouseEvent)
         {
-            if (mouseEvent.Pressed
-            && mouseEvent.ButtonIndex == MouseButton.Left
-            && GetGlobalRect().HasPoint(mouseEvent.Position))
+            if (
+                mouseEvent.Pressed
+                && mouseEvent.ButtonIndex == MouseButton.Left
+                && GetGlobalRect().HasPoint(mouseEvent.Position)
+            )
             {
                 isHeld = true;
             }
@@ -86,10 +86,12 @@ public partial class UMLNodeContainer : Control
 
     private void OnNameLabelInput(InputEvent @event)
     {
-        if (@event is InputEventMouseButton mouseEvent &&
-            mouseEvent.Pressed &&
-            mouseEvent.DoubleClick &&
-            mouseEvent.ButtonIndex == MouseButton.Left)
+        if (
+            @event is InputEventMouseButton mouseEvent
+            && mouseEvent.Pressed
+            && mouseEvent.DoubleClick
+            && mouseEvent.ButtonIndex == MouseButton.Left
+        )
         {
             editPopup.ShowAtMousePosition(umlNode.Name);
         }

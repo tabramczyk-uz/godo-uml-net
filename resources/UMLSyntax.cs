@@ -5,12 +5,12 @@ using System.Text.RegularExpressions;
 public enum UMLNodeType
 {
 	Node,
-	Class
+	Class,
 }
 
 public enum UMLNodeProperty
 {
-	Position
+	Position,
 }
 
 public static partial class UMLSyntax
@@ -23,21 +23,29 @@ public static partial class UMLSyntax
 	private const string PropertyPattern = "^(" + Identifier + "):[ \\t]*(.+)$";
 	private const string RelationshipPattern =
 		"^(" + Identifier + ")\\s*(->|<-|[\\-\\.]{1,2}|[<>]{1,2}|[oO]{1,2})\\s*(" + Identifier + ")$";
-	private const string PositionPattern = "^\\[\\s*([\\-+]?\\d*\\.?\\d+)\\s*,\\s*([\\-+]?\\d*\\.?\\d+)\\s*\\]$";
+	private const string PositionPattern =
+		"^\\[\\s*([\\-+]?\\d*\\.?\\d+)\\s*,\\s*([\\-+]?\\d*\\.?\\d+)\\s*\\]$";
 
-	private static readonly Dictionary<UMLNodeType, string> NodeTypeKeywords = new Dictionary<UMLNodeType, string>
+	private static readonly Dictionary<UMLNodeType, string> NodeTypeKeywords = new()
 	{
 		{ UMLNodeType.Node, "node" },
-		{ UMLNodeType.Class, "class" }
+		{ UMLNodeType.Class, "class" },
 	};
 
-	private static readonly Dictionary<UMLNodeProperty, string> NodePropertyKeywords = new Dictionary<UMLNodeProperty, string>
+	private static readonly Dictionary<UMLNodeProperty, string> NodePropertyKeywords = new Dictionary<
+		UMLNodeProperty,
+		string
+	>
 	{
-		{ UMLNodeProperty.Position, "position" }
+		{ UMLNodeProperty.Position, "position" },
 	};
 
-	private static readonly Dictionary<string, UMLNodeType> NodeTypesByKeyword = Invert(NodeTypeKeywords);
-	private static readonly Dictionary<string, UMLNodeProperty> NodePropertiesByKeyword = Invert(NodePropertyKeywords);
+	private static readonly Dictionary<string, UMLNodeType> NodeTypesByKeyword = Invert(
+		NodeTypeKeywords
+	);
+	private static readonly Dictionary<string, UMLNodeProperty> NodePropertiesByKeyword = Invert(
+		NodePropertyKeywords
+	);
 
 	[GeneratedRegex(IdentifierPattern)]
 	public static partial Regex IdentifierRegex();
@@ -85,7 +93,8 @@ public static partial class UMLSyntax
 	}
 
 	/// <summary>
-	/// Removes a trailing comment and any trailing whitespace, keeping the leading indentation intact.
+	/// Removes a trailing comment and any trailing whitespace, keeping the
+	/// leading indentation intact.
 	/// </summary>
 	public static string StripComment(string line)
 	{
@@ -94,7 +103,8 @@ public static partial class UMLSyntax
 	}
 
 	/// <summary>
-	/// Splits a line into its code part and its trailing comment, so rewrites can leave comments untouched.
+	/// Splits a line into its code part and its trailing comment, so rewrites can
+	/// leave comments untouched.
 	/// </summary>
 	public static void SplitComment(string line, out string code, out string comment)
 	{
@@ -111,7 +121,8 @@ public static partial class UMLSyntax
 	}
 
 	/// <summary>
-	/// Counts the leading tabs of a line. The result doubles as the offset of the line's content.
+	/// Counts the leading tabs of a line. The result doubles as the offset of the
+	/// line's content.
 	/// </summary>
 	public static int GetIndentation(string line)
 	{

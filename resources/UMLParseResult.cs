@@ -1,5 +1,6 @@
 /// <summary>
-/// Outcome of a single <see cref="UMLParser.Parse"/> call: either a diagram, or the first error encountered.
+/// Outcome of a single <see cref="UMLParser.Parse"/> call: either a diagram, or
+/// the first error encountered.
 /// </summary>
 public sealed class UMLParseResult
 {

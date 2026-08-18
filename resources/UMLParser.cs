@@ -1,11 +1,12 @@
-using Godot;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Godot;
 
 /// <summary>
-/// Turns UML source code into a <see cref="UMLDiagram"/>. Parsing stops at the first error.
-/// One instance holds the state of one parse; use the static <see cref="Parse"/> entry point.
+/// Turns UML source code into a <see cref="UMLDiagram"/>. Parsing stops at the
+/// first error. One instance holds the state of one parse; use the static <see
+/// cref="Parse"/> entry point.
 /// </summary>
 public sealed class UMLParser
 {
@@ -17,9 +18,7 @@ public sealed class UMLParser
 	private int lineNumber;
 	private string errorMessage;
 
-	private UMLParser()
-	{
-	}
+	private UMLParser() { }
 
 	public static UMLParseResult Parse(string code)
 	{
@@ -148,9 +147,21 @@ public sealed class UMLParser
 	private bool ParsePosition(string propertyValue)
 	{
 		Match positionMatch = UMLSyntax.PositionRegex().Match(propertyValue);
-		if (!positionMatch.Success
-			|| !float.TryParse(positionMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
-			|| !float.TryParse(positionMatch.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float y))
+		if (
+			!positionMatch.Success
+			|| !float.TryParse(
+				positionMatch.Groups[1].Value,
+				NumberStyles.Float,
+				CultureInfo.InvariantCulture,
+				out float x
+			)
+			|| !float.TryParse(
+				positionMatch.Groups[2].Value,
+				NumberStyles.Float,
+				CultureInfo.InvariantCulture,
+				out float y
+			)
+		)
 		{
 			return Fail("Invalid position format");
 		}

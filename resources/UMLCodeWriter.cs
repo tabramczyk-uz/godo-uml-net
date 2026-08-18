@@ -1,18 +1,20 @@
-using Godot;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Godot;
 
 /// <summary>
-/// Applies edits made in the visual editor back to the UML source code, touching as little of it as possible.
+/// Applies edits made in the visual editor back to the UML source code,
+/// touching as little of it as possible.
 /// </summary>
 public static class UMLCodeWriter
 {
 	private const string CoordinateFormat = "0.###";
 
 	/// <summary>
-	/// Renames a node in its declaration and in every relationship that references it.
-	/// Comments, indentation and spacing are left untouched, as are identifiers that merely contain the old name.
+	/// Renames a node in its declaration and in every relationship that
+	/// references it. Comments, indentation and spacing are left untouched, as
+	/// are identifiers that merely contain the old name.
 	/// </summary>
 	public static string RenameNode(string code, UMLNode node, string newName)
 	{
@@ -45,7 +47,8 @@ public static class UMLCodeWriter
 				continue;
 			}
 
-			// The right-hand side is replaced first so the left-hand side's index stays valid.
+			// The right-hand side is replaced first so the left-hand side's index
+			// stays valid.
 			string renamedLine = codePart;
 			if (relationshipMatch.Groups[3].Value == node.Name)
 			{
@@ -64,7 +67,8 @@ public static class UMLCodeWriter
 	}
 
 	/// <summary>
-	/// Rewrites the node's position property, inserting it right below the declaration if it is not there yet.
+	/// Rewrites the node's position property, inserting it right below the
+	/// declaration if it is not there yet.
 	/// </summary>
 	public static string SetNodePosition(string code, UMLNode node, Vector2 newPosition)
 	{
@@ -78,7 +82,8 @@ public static class UMLCodeWriter
 		}
 
 		string positionKeyword = UMLSyntax.GetKeyword(UMLNodeProperty.Position);
-		string positionLine = $"\t{positionKeyword}: [{FormatCoordinate(newPosition.X)}, {FormatCoordinate(newPosition.Y)}]";
+		string positionLine =
+			$"\t{positionKeyword}: [{FormatCoordinate(newPosition.X)}, {FormatCoordinate(newPosition.Y)}]";
 
 		for (int i = declarationLineNumber + 1; i < lines.Length; i++)
 		{
@@ -131,7 +136,9 @@ public static class UMLCodeWriter
 
 	private static string ReplaceGroup(string line, Group group, string replacement)
 	{
-		return line.Substring(0, group.Index) + replacement + line.Substring(group.Index + group.Length);
+		return line.Substring(0, group.Index)
+			+ replacement
+			+ line.Substring(group.Index + group.Length);
 	}
 
 	private static string FormatCoordinate(float value)

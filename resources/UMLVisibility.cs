@@ -4,5 +4,5 @@ public enum UMLVisibility
 	Public,
 	Private,
 	Package,
-	Protected
+	Protected,
 }

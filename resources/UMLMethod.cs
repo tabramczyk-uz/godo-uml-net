@@ -1,5 +1,5 @@
-using Godot;
 using System.Collections.Generic;
+using Godot;
 
 public partial class UMLMethod : Resource
 {
@@ -7,7 +7,8 @@ public partial class UMLMethod : Resource
 		string name = "method",
 		string returnType = "void",
 		UMLVisibility visibility = UMLVisibility.Unknown,
-		List<UMLMethodArgument> arguments = null)
+		List<UMLMethodArgument> arguments = null
+	)
 	{
 		Name = name;
 		ReturnType = returnType;

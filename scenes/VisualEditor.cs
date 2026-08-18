@@ -1,6 +1,6 @@
-using Godot;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Godot;
 
 public partial class VisualEditor : Control
 {
@@ -10,8 +10,12 @@ public partial class VisualEditor : Control
 	[Signal]
 	public delegate void NodePositionChangedEventHandler(UMLNode node, Vector2 newPosition);
 
-	private static readonly PackedScene UmlClassContainer = GD.Load<PackedScene>("res://scenes/UMLClassContainer.tscn");
-	private static readonly PackedScene UmlNodeContainer = GD.Load<PackedScene>("res://scenes/UMLNodeContainer.tscn");
+	private static readonly PackedScene UmlClassContainer = GD.Load<PackedScene>(
+		"res://scenes/UMLClassContainer.tscn"
+	);
+	private static readonly PackedScene UmlNodeContainer = GD.Load<PackedScene>(
+		"res://scenes/UMLNodeContainer.tscn"
+	);
 
 	[Export]
 	public float ScrollSensitivity { get; set; } = 5.0f;
@@ -20,8 +24,9 @@ public partial class VisualEditor : Control
 	private ColorRect grayOut;
 
 	private UMLDiagram diagram = null;
-    private UMLNodeContainer draggedNodeContainer = null;
-	private Dictionary<UMLNode, UMLNodeContainer> containers = new Dictionary<UMLNode, UMLNodeContainer>();
+	private UMLNodeContainer draggedNodeContainer = null;
+	private Dictionary<UMLNode, UMLNodeContainer> containers =
+		new Dictionary<UMLNode, UMLNodeContainer>();
 
 	public override void _Ready()
 	{
@@ -31,14 +36,15 @@ public partial class VisualEditor : Control
 
 	public override void _Draw()
 	{
-		if (diagram == null) {
-            return;        
-        }
+		if (diagram == null)
+		{
+			return;
+		}
 
 		foreach (UMLRelationship relationship in diagram.Relationships)
 		{
-            Debug.Assert(relationship.From != null);
-            Debug.Assert(relationship.To != null);
+			Debug.Assert(relationship.From != null);
+			Debug.Assert(relationship.To != null);
 
 			UMLNodeContainer fromContainer = containers[relationship.From];
 			UMLNodeContainer toContainer = containers[relationship.To];
@@ -53,9 +59,9 @@ public partial class VisualEditor : Control
 	public override void _Input(InputEvent @event)
 	{
 		if (diagram == null)
-        {
-            return;
-        }
+		{
+			return;
+		}
 
 		if (@event is InputEventMouseButton mouseEvent)
 		{
@@ -74,22 +80,22 @@ public partial class VisualEditor : Control
 			else if (Input.IsActionJustPressed("ScrollUp"))
 			{
 				anchor.Position += ScrollSensitivity * Vector2.Up;
-                QueueRedraw();
+				QueueRedraw();
 			}
 			else if (Input.IsActionJustPressed("ScrollDown"))
 			{
 				anchor.Position += ScrollSensitivity * Vector2.Down;
-                QueueRedraw();
+				QueueRedraw();
 			}
 			else if (Input.IsActionJustPressed("ScrollLeft"))
 			{
 				anchor.Position += ScrollSensitivity * Vector2.Left;
-                QueueRedraw();
+				QueueRedraw();
 			}
 			else if (Input.IsActionJustPressed("ScrollRight"))
 			{
 				anchor.Position += ScrollSensitivity * Vector2.Right;
-                QueueRedraw();
+				QueueRedraw();
 			}
 		}
 		else if (@event is InputEventMouseMotion motionEvent)
@@ -97,12 +103,12 @@ public partial class VisualEditor : Control
 			if (Input.IsActionPressed("Drag") || Input.IsActionPressed("AltDrag"))
 			{
 				anchor.Position += motionEvent.Relative / anchor.Scale;
-                MouseDefaultCursorShape = CursorShape.Drag;
-			} 
-            else
-            {
-                MouseDefaultCursorShape = CursorShape.Arrow;
-            }
+				MouseDefaultCursorShape = CursorShape.Drag;
+			}
+			else
+			{
+				MouseDefaultCursorShape = CursorShape.Arrow;
+			}
 
 			QueueRedraw();
 		}
@@ -172,28 +178,28 @@ public partial class VisualEditor : Control
 		}
 	}
 
-    private void OnNodeContainerDragged(UMLNodeContainer container, Vector2 delta)
-    {
-        if (draggedNodeContainer != null && draggedNodeContainer != container)
-        {
-            return;
-        }
+	private void OnNodeContainerDragged(UMLNodeContainer container, Vector2 delta)
+	{
+		if (draggedNodeContainer != null && draggedNodeContainer != container)
+		{
+			return;
+		}
 
-        draggedNodeContainer = container;
-        container.Position += delta;
-        QueueRedraw();
-    }
+		draggedNodeContainer = container;
+		container.Position += delta;
+		QueueRedraw();
+	}
 
-    private void OnNodeContainerDropped(UMLNodeContainer container)
-    {
-        if (draggedNodeContainer != container)
-        {
-            return;
-        }
+	private void OnNodeContainerDropped(UMLNodeContainer container)
+	{
+		if (draggedNodeContainer != container)
+		{
+			return;
+		}
 
-        draggedNodeContainer = null;
-        EmitSignal(SignalName.NodePositionChanged, container.UmlNode, container.Position);
-    }
+		draggedNodeContainer = null;
+		EmitSignal(SignalName.NodePositionChanged, container.UmlNode, container.Position);
+	}
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)
 	{

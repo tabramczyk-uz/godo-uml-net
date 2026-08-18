@@ -78,4 +78,3 @@ public partial class CodeEditor : Control
 		updateTimer.Start();
 	}
 }
-

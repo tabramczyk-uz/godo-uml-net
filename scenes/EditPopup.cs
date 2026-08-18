@@ -33,13 +33,12 @@ public partial class EditPopup : LineEdit
                 EmitSignal(SignalName.EditFinished, Text);
                 Hide();
             }
-            else if (keyEvent.IsActionPressed("Cancel")) 
+            else if (keyEvent.IsActionPressed("Cancel"))
             {
                 Hide();
             }
         }
-        else if (@event is InputEventMouseButton mouseEvent &&
-                 mouseEvent.Pressed)
+        else if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
         {
             if (!GetGlobalRect().HasPoint(mouseEvent.Position))
             {

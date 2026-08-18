@@ -1,0 +1,5 @@
+printWidth: 100
+useTabs: true
+indentSize: 2
+endOfLine: crlf
+xmlWhitespaceSensitivity: strict
