@@ -1,17 +1,20 @@
 using System.Collections.Generic;
-using Godot;
 
-public partial class UMLMethod : Resource
+/// <summary>
+/// One entry of a classifier's operation compartment.
+/// <see cref="ReturnType"/> is empty when the source code leaves it out.
+/// </summary>
+public class UMLMethod
 {
 	public UMLMethod(
 		string name = "method",
-		string returnType = "void",
+		string returnType = "",
 		UMLVisibility visibility = UMLVisibility.Unknown,
 		List<UMLMethodArgument> arguments = null
 	)
 	{
 		Name = name;
-		ReturnType = returnType;
+		ReturnType = returnType ?? "";
 		Visibility = visibility;
 		Arguments = arguments ?? [];
 	}

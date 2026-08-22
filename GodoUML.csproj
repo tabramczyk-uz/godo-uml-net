@@ -2,4 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- The test project sits inside the repository but is built on its own. -->
+    <Compile Remove="tests/**/*.cs" />
+  </ItemGroup>
 </Project>
