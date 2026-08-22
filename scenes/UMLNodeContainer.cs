@@ -1,15 +1,13 @@
+using System;
 using Godot;
 
 public partial class UMLNodeContainer : Control
 {
-	[Signal]
-	public delegate void DraggedEventHandler(UMLNodeContainer node, Vector2 delta);
+	public event Action<UMLNodeContainer, Vector2> Dragged;
 
-	[Signal]
-	public delegate void DroppedEventHandler(UMLNodeContainer node);
+	public event Action<UMLNodeContainer> Dropped;
 
-	[Signal]
-	public delegate void NameChangedEventHandler(UMLNode node, string newName);
+	public event Action<UMLNode, string> NameChanged;
 
 	private UMLNode umlNode = new();
 	public UMLNode UmlNode
@@ -48,20 +46,19 @@ public partial class UMLNodeContainer : Control
 
 		if (@event is InputEventMouseButton mouseEvent)
 		{
-			if (
-				mouseEvent.Pressed
-				&& mouseEvent.ButtonIndex == MouseButton.Left
-				&& GetGlobalRect().HasPoint(mouseEvent.Position)
-			)
+			if (mouseEvent.ButtonIndex == MouseButton.Left)
 			{
-				isHeld = true;
-			}
-			else
-			{
-				isHeld = false;
-				if (Position != umlNode.Position)
+				if (mouseEvent.Pressed && GetGlobalRect().HasPoint(mouseEvent.Position))
 				{
-					EmitSignal(SignalName.Dropped, this);
+					isHeld = true;
+				}
+				else if (!mouseEvent.Pressed)
+				{
+					isHeld = false;
+					if (Position != umlNode.Position)
+					{
+						Dropped?.Invoke(this);
+					}
 				}
 			}
 		}
@@ -69,7 +66,7 @@ public partial class UMLNodeContainer : Control
 		{
 			if (isHeld)
 			{
-				EmitSignal(SignalName.Dragged, this, motionEvent.Relative);
+				Dragged?.Invoke(this, motionEvent.Relative);
 			}
 		}
 	}
@@ -99,6 +96,6 @@ public partial class UMLNodeContainer : Control
 
 	private void OnEditFinished(string newName)
 	{
-		EmitSignal(SignalName.NameChanged, umlNode, newName);
+		NameChanged?.Invoke(umlNode, newName);
 	}
 }

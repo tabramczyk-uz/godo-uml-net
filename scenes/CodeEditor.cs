@@ -1,9 +1,9 @@
+using System;
 using Godot;
 
 public partial class CodeEditor : Control
 {
-	[Signal]
-	public delegate void CodeChangedEventHandler(string code);
+	public event Action<string> CodeChanged;
 
 	[Export]
 	public Color StringColor { get; set; } = new Color();
@@ -34,7 +34,7 @@ public partial class CodeEditor : Control
 
 	private void SubmitCode()
 	{
-		EmitSignal(SignalName.CodeChanged, codeEdit.Text);
+		CodeChanged?.Invoke(codeEdit.Text);
 	}
 
 	public void ChangeNodeName(UMLNode node, string newName)
@@ -56,7 +56,7 @@ public partial class CodeEditor : Control
 			codeEdit.SetLineBackgroundColor(errorLine, new Color(0, 0, 0, 0));
 		}
 
-		codeEdit.SetLineBackgroundColor(errorLine, ErrorColor);
+		codeEdit.SetLineBackgroundColor(lineNumber, ErrorColor);
 		errorLabel.Text = $"Error on line {lineNumber + 1}: {message}";
 		errorContainer.Show();
 		errorLine = lineNumber;

@@ -1,14 +1,13 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Godot;
 
 public partial class VisualEditor : Control
 {
-	[Signal]
-	public delegate void NodeNameChangedEventHandler(UMLNode node, string newName);
+	public event Action<UMLNode, string> NodeNameChanged;
 
-	[Signal]
-	public delegate void NodePositionChangedEventHandler(UMLNode node, Vector2 newPosition);
+	public event Action<UMLNode, Vector2> NodePositionChanged;
 
 	private static readonly PackedScene UmlClassContainer = GD.Load<PackedScene>(
 		"res://scenes/UMLClassContainer.tscn"
@@ -132,6 +131,8 @@ public partial class VisualEditor : Control
 			child.QueueFree();
 		}
 
+		containers.Clear();
+
 		foreach (UMLNode node in newDiagram.Nodes)
 		{
 			AddUmlNode(node);
@@ -197,11 +198,11 @@ public partial class VisualEditor : Control
 		}
 
 		draggedNodeContainer = null;
-		EmitSignal(SignalName.NodePositionChanged, container.UmlNode, container.Position);
+		NodePositionChanged?.Invoke(container.UmlNode, container.Position);
 	}
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)
 	{
-		EmitSignal(SignalName.NodeNameChanged, node, newName);
+		NodeNameChanged?.Invoke(node, newName);
 	}
 }

@@ -1,9 +1,9 @@
+using System;
 using Godot;
 
 public partial class EditPopup : LineEdit
 {
-    [Signal]
-    public delegate void EditFinishedEventHandler(string newText);
+    public event Action<string> EditFinished;
 
     public override void _Ready()
     {
@@ -30,7 +30,7 @@ public partial class EditPopup : LineEdit
         {
             if (this.Visible && keyEvent.IsActionPressed("Submit"))
             {
-                EmitSignal(SignalName.EditFinished, Text);
+                EditFinished?.Invoke(Text);
                 Hide();
             }
             else if (keyEvent.IsActionPressed("Cancel"))
