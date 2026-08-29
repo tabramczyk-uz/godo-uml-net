@@ -16,25 +16,38 @@ public partial class UMLNodeContainer : Control
 		set
 		{
 			umlNode = value;
-			nameLabel.Text = $"[center][b]{value.Name}[/b][/center]";
 			Position = value.Position;
+
+			if (isReady) Update();
 		}
 	}
 
 	private RichTextLabel nameLabel;
 	private EditPopup editPopup;
 
+	private bool isReady = false;
 	private bool isEnabled = true;
 	private bool isHeld = false;
+
+	public void SetNode(UMLNode node)
+	{
+		UmlNode = node;
+	}
+
+	public virtual void Update() {
+		nameLabel.Text = $"[center][b]{umlNode.Name}[/b][/center]";
+	}
 
 	public override void _Ready()
 	{
 		nameLabel = GetNode<RichTextLabel>("%Name");
 		editPopup = GetNode<EditPopup>("%EditPopup");
 
-		nameLabel.Text = $"[center][b]{umlNode.Name}[/b][/center]";
 		nameLabel.GuiInput += OnNameLabelInput;
 		editPopup.EditFinished += OnEditFinished;
+		Update();
+
+		isReady = true;
 	}
 
 	public override void _Input(InputEvent @event)

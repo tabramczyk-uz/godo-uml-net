@@ -13,13 +13,6 @@ public partial class VisualEditor : Control
 	private const float EndingHalfWidth = 7.0f;
 	private const float LabelMargin = 4.0f;
 
-	private static readonly PackedScene UmlClassContainer = GD.Load<PackedScene>(
-			"uid://miycnuypaj3e"
-	);
-	private static readonly PackedScene UmlNodeContainer = GD.Load<PackedScene>(
-			"uid://255l5qlme474"
-	);
-
 	[Export]
 	public float ScrollSensitivity { get; set; } = 5.0f;
 
@@ -104,18 +97,16 @@ public partial class VisualEditor : Control
 		if (!string.IsNullOrEmpty(relationship.FromMultiplicity))
 		{
 			DrawText(
-					relationship.FromMultiplicity,
-					fromEdge
-							+ direction * (fromEndingLength + LabelMargin)
-							+ perpendicular * LabelMargin
+				relationship.FromMultiplicity,
+				fromEdge + direction * (fromEndingLength + LabelMargin) + perpendicular * LabelMargin
 			);
 		}
 
 		if (!string.IsNullOrEmpty(relationship.ToMultiplicity))
 		{
 			DrawText(
-					relationship.ToMultiplicity,
-					toEdge - direction * (toEndingLength + LabelMargin) + perpendicular * LabelMargin
+				relationship.ToMultiplicity,
+				toEdge - direction * (toEndingLength + LabelMargin) + perpendicular * LabelMargin
 			);
 		}
 	}
@@ -151,21 +142,20 @@ public partial class VisualEditor : Control
 
 		bool filled = ending == UMLRelationshipEnding.FilledDiamond;
 		Vector2[] points =
-				ending == UMLRelationshipEnding.HollowDiamond
-				|| ending == UMLRelationshipEnding.FilledDiamond
-						?
-						[
-								tip,
-										tip + outward * (EndingLength / 2.0f) + perpendicular * EndingHalfWidth,
-										tip + outward * EndingLength,
-										tip + outward * (EndingLength / 2.0f) - perpendicular * EndingHalfWidth,
-						]
-						:
-						[
-								tip,
-										tip + outward * EndingLength + perpendicular * EndingHalfWidth,
-										tip + outward * EndingLength - perpendicular * EndingHalfWidth,
-						];
+			ending == UMLRelationshipEnding.HollowDiamond || ending == UMLRelationshipEnding.FilledDiamond
+				?
+				[
+					tip,
+					tip + outward * (EndingLength / 2.0f) + perpendicular * EndingHalfWidth,
+					tip + outward * EndingLength,
+					tip + outward * (EndingLength / 2.0f) - perpendicular * EndingHalfWidth,
+				]
+				:
+				[
+					tip,
+					tip + outward * EndingLength + perpendicular * EndingHalfWidth,
+					tip + outward * EndingLength - perpendicular * EndingHalfWidth,
+				];
 
 		if (filled)
 		{
@@ -317,36 +307,26 @@ public partial class VisualEditor : Control
 
 		foreach (UMLNode node in newDiagram.Nodes)
 		{
-			AddUmlNode(node);
+			if (containers.TryGetValue(node, out UMLNodeContainer container))
+			{
+				container.SetNode(node);
+			}
+			else
+			{
+				AddNodeContainer(node.ToContainer());
+			}
 		}
 
 		QueueRedraw();
 	}
 
-	private void AddUmlNode(UMLNode node)
+	private void AddNodeContainer(UMLNodeContainer container)
 	{
-		UMLNodeContainer nodeContainer = null;
-
-		UMLNodeType nodeType = UMLSyntax.GetNodeType(node);
-		switch (nodeType)
-		{
-			case UMLNodeType.Class:
-				nodeContainer = (UMLNodeContainer)UmlClassContainer.Instantiate();
-				break;
-			case UMLNodeType.Node:
-				nodeContainer = (UMLNodeContainer)UmlNodeContainer.Instantiate();
-				break;
-			default:
-				GD.PushError($"Unknown node type for UMLNode: {node.Name}");
-				return;
-		}
-
-		anchor.AddChild(nodeContainer);
-		nodeContainer.UmlNode = node;
-		nodeContainer.Dragged += OnNodeContainerDragged;
-		nodeContainer.Dropped += OnNodeContainerDropped;
-		nodeContainer.NameChanged += OnNodeContainerNameChanged;
-		containers[node] = nodeContainer;
+		anchor.AddChild(container);
+		container.Dragged += OnNodeContainerDragged;
+		container.Dropped += OnNodeContainerDropped;
+		container.NameChanged += OnNodeContainerNameChanged;
+		containers[container.UmlNode] = container;
 	}
 
 	private void ToggleNodes(bool enabled)

@@ -7,15 +7,7 @@ using Godot;
 /// </summary>
 public class UMLNode
 {
-	public UMLNode(string name = "Node", Vector2? position = null)
-		: this(UMLNodeType.Node, name, position) { }
-
-	protected UMLNode(UMLNodeType type, string name, Vector2? position)
-	{
-		Type = type;
-		Name = name;
-		Position = position ?? Vector2.Zero;
-	}
+	private static readonly PackedScene UmlNodeContainer = GD.Load<PackedScene>("uid://255l5qlme474");
 
 	public UMLNodeType Type { get; }
 	public string Name { get; set; }
@@ -28,10 +20,20 @@ public class UMLNode
 	/// </summary>
 	public int SourceLine { get; set; } = -1;
 
+	public UMLNode(string name = "Node", Vector2? position = null)
+		: this(UMLNodeType.Node, name, position) { }
+
+	protected UMLNode(UMLNodeType type, string name, Vector2? position)
+	{
+		Type = type;
+		Name = name;
+		Position = position ?? Vector2.Zero;
+	}
+
 	/// <summary>
-	/// The one place that knows which class backs which node type. Everything that
-	/// turns a keyword into a node — the parser and the PlantUML importer — goes
-	/// through here.
+	/// The one place that knows which class backs which node type. Everything
+	/// that turns a keyword into a node — the parser and the PlantUML importer —
+	/// goes through here.
 	/// </summary>
 	public static UMLNode Create(UMLNodeType type, string name, Vector2? position = null)
 	{
@@ -42,5 +44,12 @@ public class UMLNode
 			_ when type.IsClassifier() => new UMLClass(type, name, position),
 			_ => new UMLNode(name, position),
 		};
+	}
+
+	public virtual UMLNodeContainer ToContainer()
+	{
+		UMLNodeContainer container = UmlNodeContainer.Instantiate() as UMLNodeContainer;
+		container.UmlNode = this;
+		return container;
 	}
 }

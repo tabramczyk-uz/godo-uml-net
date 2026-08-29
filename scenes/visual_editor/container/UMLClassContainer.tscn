@@ -1,13 +1,15 @@
 [gd_scene format=3 uid="uid://miycnuypaj3e"]
 
 [ext_resource type="PackedScene" uid="uid://255l5qlme474" path="res://scenes/visual_editor/container/UMLNodeContainer.tscn" id="1_10jc2"]
+[ext_resource type="Script" uid="uid://m6rsesdfdhqi" path="res://scenes/visual_editor/container/UMLClassContainer.cs" id="2_ow7t0"]
 
 [node name="UMLClassContainer" unique_id=2105535830 instance=ExtResource("1_10jc2")]
+script = ExtResource("2_ow7t0")
 
 [node name="VBoxContainer" parent="PanelContainer" parent_id_path=PackedInt32Array(250233138) index="0" unique_id=1853191662]
 theme_override_constants/separation = 1
 
-[node name="Name" parent="PanelContainer/VBoxContainer/NameContainer" parent_id_path=PackedInt32Array(1263569439) index="0" unique_id=675436729]
+[node name="Name" parent="PanelContainer/VBoxContainer/NameContainer" parent_id_path=PackedInt32Array(1263569439) index="0" unique_id=1121130063]
 text = "Class"
 
 [node name="HSeparator" type="HSeparator" parent="PanelContainer/VBoxContainer" index="1" unique_id=1689761843]
@@ -21,6 +23,7 @@ theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
 [node name="Attributes" type="RichTextLabel" parent="PanelContainer/VBoxContainer/AttributeContainer" index="0" unique_id=97549978]
+unique_name_in_owner = true
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
@@ -38,6 +41,7 @@ theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
 [node name="Methods" type="RichTextLabel" parent="PanelContainer/VBoxContainer/MethodContainer" index="0" unique_id=1502806693]
+unique_name_in_owner = true
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
