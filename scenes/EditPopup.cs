@@ -28,7 +28,7 @@ public partial class EditPopup : LineEdit
     {
         if (@event is InputEventKey keyEvent)
         {
-            if (this.Visible && keyEvent.IsActionPressed("Submit"))
+            if (Visible && keyEvent.IsActionPressed("Submit"))
             {
                 EditFinished?.Invoke(Text);
                 Hide();

@@ -1,19 +1,24 @@
-[gd_scene format=2]
+[gd_scene format=3 uid="uid://cnqa6ac58r558"]
 
-[node name="VisualEditor" type="Panel"]
+[ext_resource type="Script" uid="uid://biya6vf7y35j6" path="res://scenes/VisualEditor.cs" id="1_7vwpt"]
+
+[node name="VisualEditor" type="Panel" unique_id=525565316]
+custom_minimum_size = Vector2(100, 100)
+clip_contents = true
 offset_right = 100.0
 offset_bottom = 100.0
-custom_minimum_size = Vector2( 100, 100 )
-clip_contents = true
 size_flags_horizontal = 3
+script = ExtResource("1_7vwpt")
 
-[node name="Anchor" type="Control" parent="."]
+[node name="Anchor" type="Control" parent="." unique_id=1676205686]
 unique_name_in_owner = true
+anchors_preset = 0
 mouse_filter = 2
 
-[node name="GrayOut" type="ColorRect" parent="."]
+[node name="GrayOut" type="ColorRect" parent="." unique_id=921989256]
 unique_name_in_owner = true
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
-color = Color( 0, 0, 0, 0.392157 )
+color = Color(0, 0, 0, 0.392157)

@@ -1,11 +1,12 @@
-[gd_scene load_steps=2 format=2]
+[gd_scene format=3 uid="uid://b47jiafbcku8t"]
 
-[ext_resource path="res://scenes/EditPopup.cs" type="Script" id=1]
+[ext_resource type="Script" uid="uid://d22pnf4k4yh0j" path="res://scenes/EditPopup.cs" id="1"]
 
-[node name="EditPopup" type="LineEdit"]
+[node name="EditPopup" type="LineEdit" unique_id=1703044952]
 visible = false
+top_level = true
+custom_minimum_size = Vector2(150, 30)
 offset_right = 150.0
 offset_bottom = 30.0
-custom_minimum_size = Vector2( 150, 30 )
 placeholder_text = "Enter text..."
-script = ExtResource( 1 )
+script = ExtResource("1")

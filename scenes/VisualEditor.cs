@@ -10,10 +10,10 @@ public partial class VisualEditor : Control
 	public event Action<UMLNode, Vector2> NodePositionChanged;
 
 	private static readonly PackedScene UmlClassContainer = GD.Load<PackedScene>(
-		"res://scenes/UMLClassContainer.tscn"
+			"uid://miycnuypaj3e"
 	);
 	private static readonly PackedScene UmlNodeContainer = GD.Load<PackedScene>(
-		"res://scenes/UMLNodeContainer.tscn"
+			"uid://255l5qlme474"
 	);
 
 	[Export]
@@ -61,7 +61,7 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		if (@event is InputEventMouseButton mouseEvent)
+		if (@event is InputEventMouseButton)
 		{
 			if (Input.IsActionPressed("ZoomMode"))
 			{
