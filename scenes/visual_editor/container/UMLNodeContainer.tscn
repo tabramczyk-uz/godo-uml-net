@@ -1,7 +1,8 @@
 [gd_scene format=3 uid="uid://255l5qlme474"]
 
-[ext_resource type="PackedScene" path="res://scenes/EditPopup.tscn" id="1"]
-[ext_resource type="Script" uid="uid://gyf7r0ibqat5" path="res://scenes/UMLNodeContainer.cs" id="2"]
+[ext_resource type="PackedScene" uid="uid://b47jiafbcku8t" path="res://scenes/visual_editor/EditPopup.tscn" id="1"]
+[ext_resource type="Script" uid="uid://gyf7r0ibqat5" path="res://scenes/visual_editor/container/UMLNodeContainer.cs" id="2"]
+[ext_resource type="Script" uid="uid://cagcdp3117yq5" path="res://scenes/visual_editor/NodeLabel.cs" id="2_p46of"]
 
 [node name="UMLNodeContainer" type="MarginContainer" unique_id=1226868111]
 offset_right = 100.0
@@ -37,6 +38,7 @@ fit_content = true
 autowrap_mode = 0
 horizontal_alignment = 1
 vertical_alignment = 1
+script = ExtResource("2_p46of")
 
 [node name="EditPopup" parent="." unique_id=1235857926 instance=ExtResource("1")]
 unique_name_in_owner = true

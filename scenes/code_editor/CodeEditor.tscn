@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://ltwm0xrhtrp4"]
 
-[ext_resource type="Script" uid="uid://cvfo6bq73tggr" path="res://scenes/CodeEditor.cs" id="1"]
+[ext_resource type="Script" uid="uid://cvfo6bq73tggr" path="res://scenes/code_editor/CodeEditor.cs" id="1"]
 
 [sub_resource type="CodeHighlighter" id="CodeHighlighter_ihngc"]
 number_color = Color(0.81960785, 0.6039216, 0.4, 1)

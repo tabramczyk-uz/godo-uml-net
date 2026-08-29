@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://h0lty7mtkfmn"]
 
-[ext_resource type="PackedScene" uid="uid://ltwm0xrhtrp4" path="res://scenes/CodeEditor.tscn" id="1"]
-[ext_resource type="PackedScene" path="res://scenes/VisualEditor.tscn" id="2"]
+[ext_resource type="PackedScene" uid="uid://ltwm0xrhtrp4" path="res://scenes/code_editor/CodeEditor.tscn" id="1"]
+[ext_resource type="PackedScene" uid="uid://cnqa6ac58r558" path="res://scenes/visual_editor/VisualEditor.tscn" id="2"]
 [ext_resource type="Script" uid="uid://e2d740ygpqgd" path="res://scenes/Main.cs" id="3"]
 
 [node name="Main" type="Control" unique_id=1076279133]
@@ -9,6 +9,8 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("3")
 
 [node name="HSplitContainer" type="HSplitContainer" parent="." unique_id=1854219227]

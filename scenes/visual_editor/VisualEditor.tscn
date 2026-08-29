@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cnqa6ac58r558"]
 
-[ext_resource type="Script" uid="uid://biya6vf7y35j6" path="res://scenes/VisualEditor.cs" id="1_7vwpt"]
+[ext_resource type="Script" uid="uid://biya6vf7y35j6" path="res://scenes/visual_editor/VisualEditor.cs" id="1_7vwpt"]
 
 [node name="VisualEditor" type="Panel" unique_id=525565316]
 custom_minimum_size = Vector2(100, 100)

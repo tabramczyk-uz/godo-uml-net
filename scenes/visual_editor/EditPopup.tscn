@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://b47jiafbcku8t"]
 
-[ext_resource type="Script" uid="uid://d22pnf4k4yh0j" path="res://scenes/EditPopup.cs" id="1"]
+[ext_resource type="Script" uid="uid://d22pnf4k4yh0j" path="res://scenes/visual_editor/EditPopup.cs" id="1"]
 
 [node name="EditPopup" type="LineEdit" unique_id=1703044952]
 visible = false
