@@ -4,14 +4,13 @@
 /// literals are stored.
 /// </summary>
 
-public class UMLAttribute : IUMLProperty
+public class UMLAttribute
 {
     public string Name { get; set; }
     public string Type { get; set; }
     public UMLVisibility Visibility { get; set; }
 
     public UMLAttribute(
-    		
         string name = "attribute",
         string type = "",
         UMLVisibility visibility = UMLVisibility.Unknown

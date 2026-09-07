@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// One entry of a classifier's operation compartment.
 /// <see cref="ReturnType"/> is empty when the source code leaves it out.
 /// </summary>
-public class UMLMethod : IUMLProperty
+public class UMLMethod
 {
 	public string Name { get; set; }
 	public string ReturnType { get; set; }
