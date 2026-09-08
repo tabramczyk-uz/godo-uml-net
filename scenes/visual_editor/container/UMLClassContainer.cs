@@ -27,6 +27,8 @@ public partial class UMLClassContainer : UMLNodeContainer
 	{
 		attributesLabel.Text = Format(umlClass.Attributes);
 		methodsLabel.Text = Format(umlClass.Methods);
+
+		base.Update();
 	}
 
 	public override void _Ready()
