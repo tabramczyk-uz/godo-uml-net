@@ -13,6 +13,15 @@ public partial class VisualEditor : Control
 	private const float EndingHalfWidth = 7.0f;
 	private const float LabelMargin = 4.0f;
 
+	private static readonly int[] ZoomLevels = [
+		20, 30, 40, 50, 60, 70, 80, 90, // 0-7
+		100, // 8
+		110, 120, 130, 140, 150, 160, 170, 180, 190, // 9-17
+		200, // 18
+		220, 240, 260, 280, // 19-22
+		300, // 23
+	];
+
 	[Export]
 	public float ScrollSensitivity { get; set; } = 5.0f;
 
@@ -26,14 +35,18 @@ public partial class VisualEditor : Control
 	private UMLNodeContainer draggedNodeContainer = null;
 	private readonly Dictionary<UMLNode, UMLNodeContainer> containers = [];
 
-	private float Zoom
+	private int zoomLevel = 8;
+	private int Zoom
 	{
-		get => anchor.Scale.X;
+		get => zoomLevel;
 		set
 		{
+			zoomLevel = Math.Clamp(value, 0, ZoomLevels.Length - 1);
+
+			float zoom = ZoomLevels[zoomLevel] / 100f;
 			Vector2 mousePos = GetLocalMousePosition();
 			Vector2 anchorLocalMouse = (mousePos - anchor.Position) / anchor.Scale;
-			anchor.Scale = Vector2.One * value;
+			anchor.Scale = Vector2.One * zoom;
 			anchor.Position = mousePos - anchorLocalMouse * anchor.Scale;
 		}
 	}
@@ -251,12 +264,12 @@ public partial class VisualEditor : Control
 			{
 				if (Input.IsActionJustPressed("ZoomIn"))
 				{
-					Zoom *= 1.1f;
+					Zoom++;
 					QueueRedraw();
 				}
 				else if (Input.IsActionJustPressed("ZoomOut"))
 				{
-					Zoom *= 0.9f;
+					Zoom--;
 					QueueRedraw();
 				}
 			}
@@ -361,7 +374,7 @@ public partial class VisualEditor : Control
 		}
 
 		draggedNodeContainer = container;
-		container.Position += delta / Zoom;
+		container.Position += delta / anchor.Scale;
 		QueueRedraw();
 	}
 
