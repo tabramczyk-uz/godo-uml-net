@@ -360,7 +360,7 @@ public partial class VisualEditor : Control
 		}
 
 		draggedNodeContainer = container;
-		container.Position += delta;
+		container.Position += delta / Zoom;
 		QueueRedraw();
 	}
 
