@@ -286,8 +286,9 @@ public partial class VisualEditor : Control
 		{
 			if (Input.IsActionPressed("Drag") || Input.IsActionPressed("AltDrag"))
 			{
-				anchor.Position += motionEvent.Relative / Zoom;
+				anchor.Position += motionEvent.Relative;
 				MouseDefaultCursorShape = CursorShape.Drag;
+				QueueRedraw();
 			}
 			else
 			{
