@@ -26,6 +26,18 @@ public partial class VisualEditor : Control
 	private UMLNodeContainer draggedNodeContainer = null;
 	private readonly Dictionary<UMLNode, UMLNodeContainer> containers = [];
 
+	private float Zoom
+	{
+		get => anchor.Scale.X;
+		set
+		{
+			Vector2 mousePos = GetLocalMousePosition();
+			Vector2 anchorLocalMouse = (mousePos - anchor.Position) / anchor.Scale;
+			anchor.Scale = Vector2.One * value;
+			anchor.Position = mousePos - anchorLocalMouse * anchor.Scale;
+		}
+	}
+
 	public override void _Ready()
 	{
 		anchor = GetNode<Control>("%Anchor");
@@ -239,11 +251,13 @@ public partial class VisualEditor : Control
 			{
 				if (Input.IsActionJustPressed("ZoomIn"))
 				{
-					anchor.Scale *= 1.1f;
+					Zoom *= 1.1f;
+					QueueRedraw();
 				}
 				else if (Input.IsActionJustPressed("ZoomOut"))
 				{
-					anchor.Scale *= 0.9f;
+					Zoom *= 0.9f;
+					QueueRedraw();
 				}
 			}
 			// TODO: Make scrolling smoother on touchpads
@@ -272,15 +286,13 @@ public partial class VisualEditor : Control
 		{
 			if (Input.IsActionPressed("Drag") || Input.IsActionPressed("AltDrag"))
 			{
-				anchor.Position += motionEvent.Relative / anchor.Scale;
+				anchor.Position += motionEvent.Relative / Zoom;
 				MouseDefaultCursorShape = CursorShape.Drag;
 			}
 			else
 			{
 				MouseDefaultCursorShape = CursorShape.Arrow;
 			}
-
-			QueueRedraw();
 		}
 	}
 
