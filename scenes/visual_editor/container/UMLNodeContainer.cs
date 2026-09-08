@@ -16,7 +16,7 @@ public partial class UMLNodeContainer : Control
 		set
 		{
 			umlNode = value;
-			Position = value.Position;
+			Position = value.Position.Value;
 
 			if (isReady) Update();
 		}

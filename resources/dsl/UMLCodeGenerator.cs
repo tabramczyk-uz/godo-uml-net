@@ -48,7 +48,7 @@ public static class UMLCodeGenerator
 		code.Append(UMLSyntax.Indent)
 			.Append(UMLSyntax.GetKeyword(UMLNodeProperty.Position))
 			.Append(": ")
-			.Append(UMLSyntax.FormatPosition(node.Position))
+			.Append(UMLSyntax.FormatPosition(node.Position.Value))
 			.Append('\n');
 
 		if (node is not UMLClass classifier)

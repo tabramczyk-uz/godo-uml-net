@@ -430,7 +430,7 @@ public sealed partial class PlantUMLImporter
 
 		if (placed < diagram.Nodes.Count)
 		{
-			UMLAutoLayout.Apply(diagram);
+			UMLAutoLayout.ApplyToUnpositioned(diagram);
 		}
 	}
 

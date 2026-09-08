@@ -21,6 +21,7 @@ public partial class Main : Control
 		if (result.IsSuccess)
 		{
 			codeEditor.DismissError();
+			UMLAutoLayout.ApplyToUnpositioned(result.Diagram);
 		}
 		else
 		{

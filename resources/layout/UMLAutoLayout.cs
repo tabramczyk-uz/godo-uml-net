@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 /// <summary>
@@ -20,18 +21,58 @@ public static class UMLAutoLayout
 
 	public static void Apply(UMLDiagram diagram)
 	{
-		if (diagram.Nodes.Count == 0)
+		ApplyLayout(diagram.Nodes, diagram.Relationships);
+	}
+
+	public static void ApplyToUnpositioned(UMLDiagram diagram)
+	{
+		List<UMLNode> unpositionedNodes = diagram.Nodes.Where(n => n.Position == null).ToList();
+		if (unpositionedNodes.Count == 0)
 		{
 			return;
 		}
 
-		Dictionary<UMLNode, int> indices = IndexNodes(diagram.Nodes);
-		List<(int From, int To)> edges = BuildEdges(diagram, indices);
-		int[] layers = AssignLayers(diagram.Nodes.Count, edges);
-		List<List<int>> rows = GroupIntoRows(diagram.Nodes.Count, layers);
+		ApplyLayout(unpositionedNodes, diagram.Relationships);
+		OffsetAwayFromPositioned(unpositionedNodes, diagram.Nodes);
+	}
+
+	private static void OffsetAwayFromPositioned(List<UMLNode> unpositionedNodes, List<UMLNode> allNodes)
+	{
+		float minY = float.NegativeInfinity;
+		foreach (UMLNode node in allNodes)
+		{
+			if (node.Position is Vector2 position && position.Y > minY)
+			{
+				minY = position.Y;
+			}
+		}
+
+		if (float.IsNegativeInfinity(minY))
+		{
+			return;
+		}
+
+		Vector2 offset = new(0.0f, minY + RowSpacing - Margin);
+		foreach (UMLNode node in unpositionedNodes)
+		{
+			node.Position += offset;
+		}
+	}
+
+	private static void ApplyLayout(List<UMLNode> nodes, List<UMLRelationship> relationships)
+	{
+		if (nodes.Count == 0)
+		{
+			return;
+		}
+
+		Dictionary<UMLNode, int> indices = IndexNodes(nodes);
+		List<(int From, int To)> edges = BuildEdges(relationships, indices);
+		int[] layers = AssignLayers(nodes.Count, edges);
+		List<List<int>> rows = GroupIntoRows(nodes.Count, layers);
 
 		OrderRows(rows, edges, layers);
-		PlaceNodes(diagram.Nodes, rows);
+		PlaceNodes(nodes, rows);
 	}
 
 	private static Dictionary<UMLNode, int> IndexNodes(List<UMLNode> nodes)
@@ -52,13 +93,13 @@ public static class UMLAutoLayout
 	/// order it was written in.
 	/// </summary>
 	private static List<(int From, int To)> BuildEdges(
-		UMLDiagram diagram,
+		List<UMLRelationship> relationships,
 		Dictionary<UMLNode, int> indices
 	)
 	{
 		List<(int From, int To)> edges = [];
 
-		foreach (UMLRelationship relationship in diagram.Relationships)
+		foreach (UMLRelationship relationship in relationships)
 		{
 			if (
 				!indices.TryGetValue(relationship.From, out int from)

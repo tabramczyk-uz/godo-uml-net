@@ -11,7 +11,7 @@ public class UMLNode
 
 	public UMLNodeType Type { get; }
 	public string Name { get; set; }
-	public Vector2 Position { get; set; }
+	public Vector2? Position { get; set; }
 
 	/// <summary>
 	/// Zero-based index of the line the node was declared on, or -1 when the node
@@ -27,7 +27,7 @@ public class UMLNode
 	{
 		Type = type;
 		Name = name;
-		Position = position ?? Vector2.Zero;
+		Position = position;
 	}
 
 	/// <summary>

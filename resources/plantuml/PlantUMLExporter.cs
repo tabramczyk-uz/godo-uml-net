@@ -36,14 +36,14 @@ public static class PlantUMLExporter
 
 	private static void WriteNode(StringBuilder output, UMLNode node, bool includePositions)
 	{
-		if (includePositions)
+		if (includePositions && node.Position != null)
 		{
 			output
 				.Append(PlantUMLSyntax.PositionHint)
 				.Append(' ')
 				.Append(node.Name)
 				.Append(' ')
-				.Append(UMLSyntax.FormatPosition(node.Position))
+				.Append(UMLSyntax.FormatPosition(node.Position.Value))
 				.Append('\n');
 		}
 
