@@ -64,6 +64,8 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		DrawSetTransform(anchor.Position, 0.0f, anchor.Scale);
+
 		foreach (UMLRelationship relationship in diagram.Relationships)
 		{
 			Debug.Assert(relationship.From != null);
@@ -78,8 +80,8 @@ public partial class VisualEditor : Control
 		UMLNodeContainer fromContainer = containers[relationship.From];
 		UMLNodeContainer toContainer = containers[relationship.To];
 
-		Rect2 fromRect = ToLocalRect(fromContainer.GetGlobalRect());
-		Rect2 toRect = ToLocalRect(toContainer.GetGlobalRect());
+		Rect2 fromRect = new(fromContainer.Position, fromContainer.Size);
+		Rect2 toRect  = new(toContainer.Position, toContainer.Size);
 		Vector2 fromCenter = fromRect.GetCenter();
 		Vector2 toCenter = toRect.GetCenter();
 
@@ -196,11 +198,6 @@ public partial class VisualEditor : Control
 	private static float GetEndingLength(UMLRelationshipEnding ending)
 	{
 		return ending == UMLRelationshipEnding.None ? 0.0f : EndingLength;
-	}
-
-	private Rect2 ToLocalRect(Rect2 globalRect)
-	{
-		return new Rect2(globalRect.Position - GlobalPosition, globalRect.Size);
 	}
 
 	/// <summary>
