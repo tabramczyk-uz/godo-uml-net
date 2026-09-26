@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Godot;
 
 public partial class VisualEditor : Control
@@ -34,6 +35,13 @@ public partial class VisualEditor : Control
 	private UMLDiagram diagram = null;
 	private UMLNodeContainer draggedNodeContainer = null;
 	private readonly Dictionary<UMLNode, UMLNodeContainer> containers = [];
+
+	/// <summary>
+	/// Where the auto-positioned nodes were last shown, by name. Their positions
+	/// never reach the source, so without this every re-parse would snap them back
+	/// to the layered layout and undo whatever the force field pushed them into.
+	/// </summary>
+	private readonly Dictionary<string, Vector2> autoPositions = [];
 
 	private int zoomLevel = 8;
 	private int Zoom
@@ -338,8 +346,14 @@ public partial class VisualEditor : Control
 			{
 				AddNodeContainer(node.ToContainer());
 			}
+
+			if (node.IsAutoPositioned && autoPositions.TryGetValue(node.Name, out Vector2 position))
+			{
+				containers[node].Position = position;
+			}
 		}
 
+		PushAutoPositioned(null);
 		QueueRedraw();
 	}
 
@@ -372,7 +386,48 @@ public partial class VisualEditor : Control
 
 		draggedNodeContainer = container;
 		container.Position += delta / anchor.Scale;
+		PushAutoPositioned(container);
 		QueueRedraw();
+	}
+
+	/// <summary>
+	/// Shoves the auto-positioned containers out of the way of every other node,
+	/// and of <paramref name="dragged"/> in particular, so they part around it as
+	/// it moves. The pushes accumulate from wherever the containers already are,
+	/// which keeps the motion continuous while dragging. Only container positions
+	/// change; the model and the source stay untouched.
+	/// </summary>
+	private void PushAutoPositioned(UMLNodeContainer dragged)
+	{
+		List<UMLNodeContainer> movable = [];
+		List<Rect2> fixedBoxes = [];
+		foreach ((UMLNode node, UMLNodeContainer container) in containers)
+		{
+			if (node.IsAutoPositioned && container != dragged)
+			{
+				movable.Add(container);
+			}
+			else
+			{
+				fixedBoxes.Add(GetBox(container));
+			}
+		}
+
+		Vector2[] positions = UMLAutoLayout.Separate(movable.Select(GetBox).ToList(), fixedBoxes);
+		for (int i = 0; i < movable.Count; i++)
+		{
+			movable[i].Position = positions[i];
+			autoPositions[movable[i].UmlNode.Name] = positions[i];
+		}
+	}
+
+	/// <summary>
+	/// The area a container covers on the canvas. A container added this frame
+	/// has not been sized by its layout yet, so its minimum size stands in.
+	/// </summary>
+	private static Rect2 GetBox(UMLNodeContainer container)
+	{
+		return new Rect2(container.Position, container.Size.Max(container.GetCombinedMinimumSize()));
 	}
 
 	private void OnNodeContainerDropped(UMLNodeContainer container)
@@ -388,6 +443,11 @@ public partial class VisualEditor : Control
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)
 	{
+		if (autoPositions.TryGetValue(node.Name, out Vector2 position))
+		{
+			autoPositions[newName] = position;
+		}
+
 		NodeNameChanged?.Invoke(node, newName);
 	}
 }

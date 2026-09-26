@@ -14,6 +14,13 @@ public class UMLNode
 	public Vector2? Position { get; set; }
 
 	/// <summary>
+	/// True when <see cref="Position"/> was computed by <see cref="UMLAutoLayout"/>
+	/// rather than written in the source. Unlike a null position, it survives the
+	/// layout pass, so the canvas can tell which nodes it may move.
+	/// </summary>
+	public bool IsAutoPositioned { get; set; }
+
+	/// <summary>
 	/// Zero-based index of the line the node was declared on, or -1 when the node
 	/// did not come from source code. The writers use it to edit exactly the line
 	/// the node came from.

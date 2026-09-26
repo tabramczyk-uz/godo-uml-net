@@ -172,7 +172,7 @@ public class UMLParserTests
 		var node = (UMLClass)Assert.Single(ParseOrFail("class A\n\t+ position: Vector2").Nodes);
 
 		Assert.Equal("position", Assert.Single(node.Attributes).Name);
-		Assert.Equal(Vector2.Zero, node.Position);
+		Assert.Null(node.Position);
 	}
 
 	[Theory]

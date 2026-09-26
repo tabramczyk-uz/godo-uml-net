@@ -17,11 +17,20 @@ public static class UMLAutoLayout
 	public const float RowSpacing = 170.0f;
 	public const float Margin = 40.0f;
 
+	/// <summary>
+	/// The footprint assumed for a node when keeping auto-placed nodes clear of
+	/// fixed ones; the model does not know the size of the containers.
+	/// </summary>
+	public static readonly Vector2 EstimatedNodeSize = new(160.0f, 100.0f);
+	public const float ClearanceBuffer = 20.0f;
+
 	private const int OrderingSweeps = 4;
+	private const int SeparationPasses = 32;
+	private const float OverlapTolerance = 0.01f;
 
 	public static void Apply(UMLDiagram diagram)
 	{
-		ApplyLayout(diagram.Nodes, diagram.Relationships);
+		Assign(Layout(diagram.Nodes, diagram.Relationships, []));
 	}
 
 	public static void ApplyToUnpositioned(UMLDiagram diagram)
@@ -32,38 +41,28 @@ public static class UMLAutoLayout
 			return;
 		}
 
-		ApplyLayout(unpositionedNodes, diagram.Relationships);
-		OffsetAwayFromPositioned(unpositionedNodes, diagram.Nodes);
+		List<Vector2> obstacles = diagram
+			.Nodes.Where(n => n.Position != null)
+			.Select(n => n.Position.Value)
+			.ToList();
+
+		Assign(Layout(unpositionedNodes, diagram.Relationships, obstacles));
 	}
 
-	private static void OffsetAwayFromPositioned(List<UMLNode> unpositionedNodes, List<UMLNode> allNodes)
-	{
-		float minY = float.NegativeInfinity;
-		foreach (UMLNode node in allNodes)
-		{
-			if (node.Position is Vector2 position && position.Y > minY)
-			{
-				minY = position.Y;
-			}
-		}
-
-		if (float.IsNegativeInfinity(minY))
-		{
-			return;
-		}
-
-		Vector2 offset = new(0.0f, minY + RowSpacing - Margin);
-		foreach (UMLNode node in unpositionedNodes)
-		{
-			node.Position += offset;
-		}
-	}
-
-	private static void ApplyLayout(List<UMLNode> nodes, List<UMLRelationship> relationships)
+	/// <summary>
+	/// Computes where <paramref name="nodes"/> would go, keeping clear of the fixed
+	/// nodes whose top-left corners are in <paramref name="obstacles"/>. Nothing is
+	/// mutated.
+	/// </summary>
+	public static Dictionary<UMLNode, Vector2> Layout(
+		List<UMLNode> nodes,
+		List<UMLRelationship> relationships,
+		IReadOnlyList<Vector2> obstacles
+	)
 	{
 		if (nodes.Count == 0)
 		{
-			return;
+			return [];
 		}
 
 		Dictionary<UMLNode, int> indices = IndexNodes(nodes);
@@ -72,7 +71,108 @@ public static class UMLAutoLayout
 		List<List<int>> rows = GroupIntoRows(nodes.Count, layers);
 
 		OrderRows(rows, edges, layers);
-		PlaceNodes(nodes, rows);
+		return PlaceNodes(nodes, rows, obstacles);
+	}
+
+	/// <summary>
+	/// Pushes the <paramref name="movable"/> boxes out of each other and out of the
+	/// <paramref name="fixedBoxes"/>, like a force field around every box: an
+	/// overlapping box is shoved along the line between the two centres until
+	/// <paramref name="clearance"/> separates them. Fixed boxes never move and push
+	/// with full force; two movable boxes split the push between them. Pushes can
+	/// cascade, so the pass repeats until nothing overlaps or the pass budget runs
+	/// out. Returns the new top-left corners of <paramref name="movable"/>, in order.
+	/// </summary>
+	public static Vector2[] Separate(
+		IReadOnlyList<Rect2> movable,
+		IReadOnlyList<Rect2> fixedBoxes,
+		float clearance = ClearanceBuffer
+	)
+	{
+		Rect2[] boxes = [.. movable];
+
+		for (int pass = 0; pass < SeparationPasses; pass++)
+		{
+			bool moved = false;
+
+			for (int i = 0; i < boxes.Length; i++)
+			{
+				for (int j = i + 1; j < boxes.Length; j++)
+				{
+					Vector2 push = Repulsion(boxes[i], boxes[j], clearance, Vector2.Right);
+					if (push != Vector2.Zero)
+					{
+						boxes[i].Position -= push / 2.0f;
+						boxes[j].Position += push / 2.0f;
+						moved = true;
+					}
+				}
+			}
+
+			// Fixed boxes go last so that, if the budget runs out, the leftover
+			// overlaps are between movable boxes rather than over a fixed one.
+			for (int i = 0; i < boxes.Length; i++)
+			{
+				foreach (Rect2 fixedBox in fixedBoxes)
+				{
+					Vector2 push = Repulsion(fixedBox, boxes[i], clearance, Vector2.Down);
+					if (push != Vector2.Zero)
+					{
+						boxes[i].Position += push;
+						moved = true;
+					}
+				}
+			}
+
+			if (!moved)
+			{
+				break;
+			}
+		}
+
+		return boxes.Select(box => box.Position).ToArray();
+	}
+
+	/// <summary>
+	/// How far <paramref name="target"/> has to move, directly away from the centre
+	/// of <paramref name="source"/>, for the two to be <paramref name="clearance"/>
+	/// apart; zero when they already are. Boxes sharing a centre are pushed along
+	/// <paramref name="fallback"/>.
+	/// </summary>
+	private static Vector2 Repulsion(Rect2 source, Rect2 target, float clearance, Vector2 fallback)
+	{
+		Vector2 between = target.GetCenter() - source.GetCenter();
+		Vector2 overlap = ((source.Size + target.Size) / 2.0f) + (Vector2.One * clearance) - between.Abs();
+		if (overlap.X <= OverlapTolerance || overlap.Y <= OverlapTolerance)
+		{
+			return Vector2.Zero;
+		}
+
+		Vector2 direction = between.LengthSquared() > OverlapTolerance ? between.Normalized() : fallback;
+
+		// Travelling along the direction, the boxes separate as soon as either
+		// axis clears, so the push is the shorter of the two distances.
+		float distance = float.PositiveInfinity;
+		if (Mathf.Abs(direction.X) > Mathf.Epsilon)
+		{
+			distance = overlap.X / Mathf.Abs(direction.X);
+		}
+
+		if (Mathf.Abs(direction.Y) > Mathf.Epsilon)
+		{
+			distance = Mathf.Min(distance, overlap.Y / Mathf.Abs(direction.Y));
+		}
+
+		return direction * distance;
+	}
+
+	private static void Assign(Dictionary<UMLNode, Vector2> positions)
+	{
+		foreach ((UMLNode node, Vector2 position) in positions)
+		{
+			node.Position = position;
+			node.IsAutoPositioned = true;
+		}
 	}
 
 	private static Dictionary<UMLNode, int> IndexNodes(List<UMLNode> nodes)
@@ -269,8 +369,14 @@ public static class UMLAutoLayout
 		}
 	}
 
-	private static void PlaceNodes(List<UMLNode> nodes, List<List<int>> rows)
+	private static Dictionary<UMLNode, Vector2> PlaceNodes(
+		List<UMLNode> nodes,
+		List<List<int>> rows,
+		IReadOnlyList<Vector2> obstacles
+	)
 	{
+		var positions = new Dictionary<UMLNode, Vector2>(nodes.Count);
+
 		int widestRow = 0;
 		foreach (List<int> row in rows)
 		{
@@ -280,13 +386,40 @@ public static class UMLAutoLayout
 		for (int row = 0; row < rows.Count; row++)
 		{
 			float offset = (widestRow - rows[row].Count) * ColumnSpacing / 2.0f;
-			for (int column = 0; column < rows[row].Count; column++)
+			int column = 0;
+			foreach (int node in rows[row])
 			{
-				nodes[rows[row][column]].Position = new Vector2(
-					Margin + offset + (column * ColumnSpacing),
-					Margin + (row * RowSpacing)
-				);
+				Vector2 candidate = CellPosition(offset, column, row);
+				while (Collides(candidate, obstacles))
+				{
+					column++;
+					candidate = CellPosition(offset, column, row);
+				}
+
+				positions[nodes[node]] = candidate;
+				column++;
 			}
 		}
+
+		return positions;
+	}
+
+	private static Vector2 CellPosition(float offset, int column, int row)
+	{
+		return new Vector2(Margin + offset + (column * ColumnSpacing), Margin + (row * RowSpacing));
+	}
+
+	private static bool Collides(Vector2 candidate, IReadOnlyList<Vector2> obstacles)
+	{
+		Rect2 box = new Rect2(candidate, EstimatedNodeSize).Grow(ClearanceBuffer);
+		foreach (Vector2 obstacle in obstacles)
+		{
+			if (box.Intersects(new Rect2(obstacle, EstimatedNodeSize)))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 }

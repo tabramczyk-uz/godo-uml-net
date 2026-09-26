@@ -281,7 +281,7 @@ public class PlantUMLImporterTests
 		PlantUMLImportResult result = PlantUMLImporter.Import("@startuml\nA <|-- B\nA <|-- C\n@enduml");
 
 		Assert.All(result.Diagram.Nodes, node => Assert.NotEqual(Vector2.Zero, node.Position));
-		Assert.True(result.Diagram.Nodes[1].Position.Y > result.Diagram.Nodes[0].Position.Y);
+		Assert.True(result.Diagram.Nodes[1].Position.Value.Y > result.Diagram.Nodes[0].Position.Value.Y);
 	}
 
 	[Fact]
