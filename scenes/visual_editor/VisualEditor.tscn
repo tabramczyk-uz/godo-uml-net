@@ -40,15 +40,21 @@ anchor_right = 1.0
 grow_horizontal = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_m3nub")
 
-[node name="MenuBar" type="MenuBar" parent="MenuPanel" unique_id=603118274]
+[node name="MenuRow" type="HBoxContainer" parent="MenuPanel" unique_id=1149830562]
+layout_mode = 2
+
+[node name="MenuBar" type="MenuBar" parent="MenuPanel/MenuRow" unique_id=603118274]
 unique_name_in_owner = true
 layout_mode = 2
 flat = true
 
-[node name="Add" type="PopupMenu" parent="MenuPanel/MenuBar" unique_id=1927460335]
+[node name="Add" type="PopupMenu" parent="MenuPanel/MenuRow/MenuBar" unique_id=1927460335]
 unique_name_in_owner = true
 
-[node name="View" type="PopupMenu" parent="MenuPanel/MenuBar" unique_id=845392016]
+[node name="Connect" type="PopupMenu" parent="MenuPanel/MenuRow/MenuBar" unique_id=1718264093]
+unique_name_in_owner = true
+
+[node name="View" type="PopupMenu" parent="MenuPanel/MenuRow/MenuBar" unique_id=845392016]
 unique_name_in_owner = true
 item_count = 4
 item_0/text = "Zoom In"
@@ -59,3 +65,13 @@ item_2/text = "Reset Zoom"
 item_2/id = 2
 item_3/text = "Frame Diagram"
 item_3/id = 3
+
+[node name="HintLabel" type="Label" parent="MenuPanel/MenuRow" unique_id=372905846]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.623529, 0.623529, 0.623529, 1)
+horizontal_alignment = 2
+vertical_alignment = 1
+text_overrun_behavior = 3

@@ -55,6 +55,17 @@ public partial class CodeEditor : Control
 		SubmitCode();
 	}
 
+	public void AddRelationship(
+		UMLNode from,
+		UMLNode to,
+		UMLRelationshipType type,
+		UMLRelationshipDirection direction
+	)
+	{
+		codeEdit.Text = UMLCodeWriter.AddRelationship(codeEdit.Text, from, to, type, direction);
+		SubmitCode();
+	}
+
 	public void ShowError(string message, int lineNumber)
 	{
 		if (errorLine != -1)

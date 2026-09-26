@@ -16,6 +16,12 @@ public partial class VisualEditor : Control
 	/// </summary>
 	public event Action<UMLNodeType, string, Vector2> NodeAdded;
 
+	/// <summary>
+	/// Raised when the Connect menu has had both ends of a new relationship
+	/// clicked. Like a new node, it only appears once written into the code.
+	/// </summary>
+	public event Action<UMLNode, UMLNode, UMLRelationshipType, UMLRelationshipDirection> RelationshipAdded;
+
 	/// <summary>Ids of the View menu's items, as set in the scene.</summary>
 	private enum ViewMenuItem
 	{
@@ -57,6 +63,23 @@ public partial class VisualEditor : Control
 	private Control menuPanel;
 	private MenuBar menuBar;
 	private PopupMenu addMenu;
+	private PopupMenu connectMenu;
+	private Label hintLabel;
+
+	/// <summary>
+	/// The relationship the Connect menu is waiting to have clicked out, or
+	/// <c>null</c> when it is not.
+	/// </summary>
+	private UMLRelationshipType? connectionType = null;
+
+	/// <summary>The first node clicked for the pending relationship.</summary>
+	private UMLNodeContainer connectionSource = null;
+
+	/// <summary>
+	/// Where the pending relationship's preview ends: the last mouse position
+	/// seen, in the editor's own coordinates.
+	/// </summary>
+	private Vector2 connectionEnd;
 
 	private UMLDiagram diagram = null;
 	private UMLNodeContainer draggedNodeContainer = null;
@@ -86,13 +109,21 @@ public partial class VisualEditor : Control
 		menuPanel = GetNode<Control>("%MenuPanel");
 		menuBar = GetNode<MenuBar>("%MenuBar");
 		addMenu = GetNode<PopupMenu>("%Add");
+		connectMenu = GetNode<PopupMenu>("%Connect");
+		hintLabel = GetNode<Label>("%HintLabel");
 
 		foreach (UMLNodeType type in Enum.GetValues<UMLNodeType>())
 		{
 			addMenu.AddItem(GetDisplayName(type), (int)type);
 		}
 
+		foreach (UMLRelationshipType type in Enum.GetValues<UMLRelationshipType>())
+		{
+			connectMenu.AddItem(GetDisplayName(type), (int)type);
+		}
+
 		addMenu.IdPressed += OnAddMenuIdPressed;
+		connectMenu.IdPressed += OnConnectMenuIdPressed;
 		GetNode<PopupMenu>("%View").IdPressed += OnViewMenuIdPressed;
 	}
 
@@ -123,9 +154,9 @@ public partial class VisualEditor : Control
 	/// Spells an enum name out for a menu, e.g. <c>AbstractClass</c> as
 	/// <c>Abstract Class</c>.
 	/// </summary>
-	private static string GetDisplayName(UMLNodeType type)
+	private static string GetDisplayName(Enum value)
 	{
-		string name = type.ToString();
+		string name = value.ToString();
 		var displayName = new StringBuilder();
 		for (int i = 0; i < name.Length; i++)
 		{
@@ -150,6 +181,196 @@ public partial class VisualEditor : Control
 		UMLNodeType type = (UMLNodeType)id;
 		string name = diagram.GetUniqueNodeName(type.ToString());
 		NodeAdded?.Invoke(type, name, GetNewNodePosition());
+	}
+
+	private void OnConnectMenuIdPressed(long id)
+	{
+		if (diagram == null)
+		{
+			return;
+		}
+
+		connectionType = (UMLRelationshipType)id;
+		connectionSource = null;
+		ToggleNodes(false);
+		MouseDefaultCursorShape = CursorShape.Cross;
+		UpdateConnectionHint();
+		QueueRedraw();
+	}
+
+	private void UpdateConnectionHint()
+	{
+		string source = connectionSource == null ? string.Empty : $"{connectionSource.UmlNode.Name} → ";
+		hintLabel.Text = $"{GetDisplayName(connectionType.Value)}: {source}click a node (Esc cancels)";
+		hintLabel.Show();
+	}
+
+	/// <summary>
+	/// Leaves the Connect menu's click-to-pick mode, if it is on, and gives the
+	/// nodes their dragging back.
+	/// </summary>
+	private void EndConnection()
+	{
+		if (connectionType == null)
+		{
+			return;
+		}
+
+		connectionType = null;
+		connectionSource = null;
+		ToggleNodes(!grayOut.Visible);
+		MouseDefaultCursorShape = CursorShape.Arrow;
+		hintLabel.Hide();
+		QueueRedraw();
+	}
+
+	/// <summary>
+	/// Takes the clicks that pick the two ends of a pending relationship: a
+	/// left click on a node picks it, a right click or Cancel gives up. Returns
+	/// whether the event was used up.
+	/// </summary>
+	private bool HandleConnectionInput(InputEvent @event)
+	{
+		if (@event.IsActionPressed("Cancel"))
+		{
+			EndConnection();
+			return true;
+		}
+
+		if (@event is InputEventMouseMotion motionEvent)
+		{
+			connectionEnd = ToLocal(motionEvent.Position);
+			if (connectionSource != null)
+			{
+				QueueRedraw();
+			}
+
+			return false;
+		}
+
+		if (@event is not InputEventMouseButton { Pressed: true } mouseEvent)
+		{
+			return false;
+		}
+
+		connectionEnd = ToLocal(mouseEvent.Position);
+		if (!GetCanvasRect().HasPoint(connectionEnd))
+		{
+			return false;
+		}
+
+		if (mouseEvent.ButtonIndex == MouseButton.Right)
+		{
+			EndConnection();
+			return true;
+		}
+
+		if (mouseEvent.ButtonIndex != MouseButton.Left)
+		{
+			return false;
+		}
+
+		UMLNodeContainer clicked = GetContainerAt(mouseEvent.Position);
+		if (clicked == null || clicked == connectionSource)
+		{
+			return true;
+		}
+
+		if (connectionSource == null)
+		{
+			connectionSource = clicked;
+			UpdateConnectionHint();
+			QueueRedraw();
+			return true;
+		}
+
+		// The mode ends before the relationship is announced, since writing it
+		// re-parses the code and rebuilds every container.
+		UMLRelationshipType type = connectionType.Value;
+		UMLNode from = connectionSource.UmlNode;
+		UMLNode to = clicked.UmlNode;
+		EndConnection();
+		RelationshipAdded?.Invoke(from, to, type, GetDirection(type));
+		return true;
+	}
+
+	/// <summary>
+	/// Converts an input event's position into the editor's own coordinates.
+	/// </summary>
+	private Vector2 ToLocal(Vector2 eventPosition)
+	{
+		return GetGlobalTransform().AffineInverse() * eventPosition;
+	}
+
+	/// <summary>
+	/// The topmost node under <paramref name="globalPosition"/>, if any.
+	/// </summary>
+	private UMLNodeContainer GetContainerAt(Vector2 globalPosition)
+	{
+		Godot.Collections.Array<Node> children = anchor.GetChildren();
+		for (int i = children.Count - 1; i >= 0; i--)
+		{
+			if (
+				children[i] is UMLNodeContainer container
+				&& container.GetGlobalRect().HasPoint(globalPosition)
+			)
+			{
+				return container;
+			}
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// Which end of a relationship clicked out from the menu is decorated: a
+	/// plain association has no decoration, every other kind decorates the
+	/// second node clicked.
+	/// </summary>
+	private static UMLRelationshipDirection GetDirection(UMLRelationshipType type)
+	{
+		return type == UMLRelationshipType.Association
+			? UMLRelationshipDirection.None
+			: UMLRelationshipDirection.Forward;
+	}
+
+	/// <summary>
+	/// Draws the pending relationship from its first node to the mouse, styled
+	/// like the line it will become.
+	/// </summary>
+	private void DrawConnectionPreview(UMLRelationshipType type, UMLNodeContainer source)
+	{
+		Rect2 sourceRect = new(source.Position, GetSize(source));
+		Vector2 mouse = (connectionEnd - anchor.Position) / anchor.Scale;
+		if (sourceRect.HasPoint(mouse))
+		{
+			return;
+		}
+
+		Vector2 start = ClipToRect(sourceRect, sourceRect.GetCenter(), mouse);
+		Vector2 delta = mouse - start;
+		if (delta.LengthSquared() < 0.0001f)
+		{
+			return;
+		}
+
+		Vector2 direction = delta.Normalized();
+		bool decorated = GetDirection(type).DecoratesTo();
+		Vector2 lineEnd = decorated ? mouse - direction * EndingLength : mouse;
+
+		if (type.IsDashed())
+		{
+			DrawDashedLine(start, lineEnd, Colors.White, 2.0f, 6.0f);
+		}
+		else
+		{
+			DrawLine(start, lineEnd, Colors.White, 2.0f, true);
+		}
+
+		if (decorated)
+		{
+			DrawEnding(type.GetEnding(), mouse, -direction);
+		}
 	}
 
 	/// <summary>
@@ -254,6 +475,11 @@ public partial class VisualEditor : Control
 			Debug.Assert(relationship.To != null);
 
 			DrawRelationship(relationship);
+		}
+
+		if (connectionType != null && connectionSource != null)
+		{
+			DrawConnectionPreview(connectionType.Value, connectionSource);
 		}
 	}
 
@@ -437,6 +663,12 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		if (connectionType != null && HandleConnectionInput(@event))
+		{
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+
 		if (@event is InputEventMouseButton)
 		{
 			if (Input.IsActionPressed("ZoomMode"))
@@ -484,7 +716,8 @@ public partial class VisualEditor : Control
 			}
 			else
 			{
-				MouseDefaultCursorShape = CursorShape.Arrow;
+				MouseDefaultCursorShape =
+					connectionType == null ? CursorShape.Arrow : CursorShape.Cross;
 			}
 		}
 	}
@@ -493,7 +726,9 @@ public partial class VisualEditor : Control
 	{
 		bool isDiagramRendered = newDiagram != null;
 		grayOut.Visible = !isDiagramRendered;
+		EndConnection();
 		menuBar.SetMenuDisabled(addMenu.GetIndex(), !isDiagramRendered);
+		menuBar.SetMenuDisabled(connectMenu.GetIndex(), !isDiagramRendered);
 		ToggleNodes(isDiagramRendered);
 
 		if (!isDiagramRendered)

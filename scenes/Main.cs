@@ -14,6 +14,7 @@ public partial class Main : Control
 		visualEditor.NodeNameChanged += OnNodeNameChanged;
 		visualEditor.NodePositionChanged += OnNodePositionChanged;
 		visualEditor.NodeAdded += OnNodeAdded;
+		visualEditor.RelationshipAdded += OnRelationshipAdded;
 	}
 
 	private void OnCodeChanged(string code)
@@ -53,5 +54,15 @@ public partial class Main : Control
 	private void OnNodeAdded(UMLNodeType type, string name, Vector2 position)
 	{
 		codeEditor.AddNode(type, name, position);
+	}
+
+	private void OnRelationshipAdded(
+		UMLNode from,
+		UMLNode to,
+		UMLRelationshipType type,
+		UMLRelationshipDirection direction
+	)
+	{
+		codeEditor.AddRelationship(from, to, type, direction);
 	}
 }
