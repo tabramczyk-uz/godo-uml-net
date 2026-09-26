@@ -13,6 +13,7 @@ public partial class Main : Control
 		visualEditor = GetNode<VisualEditor>("%VisualEditor");
 		visualEditor.NodeNameChanged += OnNodeNameChanged;
 		visualEditor.NodePositionChanged += OnNodePositionChanged;
+		visualEditor.NodeAdded += OnNodeAdded;
 	}
 
 	private void OnCodeChanged(string code)
@@ -47,5 +48,10 @@ public partial class Main : Control
 	private void OnNodePositionChanged(UMLNode node, Vector2 newPosition)
 	{
 		codeEditor.ChangeNodePosition(node, newPosition);
+	}
+
+	private void OnNodeAdded(UMLNodeType type, string name, Vector2 position)
+	{
+		codeEditor.AddNode(type, name, position);
 	}
 }

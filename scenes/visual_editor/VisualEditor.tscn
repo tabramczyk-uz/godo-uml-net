@@ -2,6 +2,15 @@
 
 [ext_resource type="Script" uid="uid://biya6vf7y35j6" path="res://scenes/visual_editor/VisualEditor.cs" id="1_7vwpt"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_m3nub"]
+content_margin_left = 4.0
+content_margin_top = 2.0
+content_margin_right = 4.0
+content_margin_bottom = 2.0
+bg_color = Color(0.141176, 0.141176, 0.141176, 1)
+border_width_bottom = 2
+border_color = Color(0.623529, 0.623529, 0.623529, 1)
+
 [node name="VisualEditor" type="Panel" unique_id=525565316]
 custom_minimum_size = Vector2(100, 100)
 clip_contents = true
@@ -22,3 +31,31 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0, 0, 0, 0.392157)
+
+[node name="MenuPanel" type="PanelContainer" parent="." unique_id=1384520917]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_m3nub")
+
+[node name="MenuBar" type="MenuBar" parent="MenuPanel" unique_id=603118274]
+unique_name_in_owner = true
+layout_mode = 2
+flat = true
+
+[node name="Add" type="PopupMenu" parent="MenuPanel/MenuBar" unique_id=1927460335]
+unique_name_in_owner = true
+
+[node name="View" type="PopupMenu" parent="MenuPanel/MenuBar" unique_id=845392016]
+unique_name_in_owner = true
+item_count = 4
+item_0/text = "Zoom In"
+item_0/id = 0
+item_1/text = "Zoom Out"
+item_1/id = 1
+item_2/text = "Reset Zoom"
+item_2/id = 2
+item_3/text = "Frame Diagram"
+item_3/id = 3

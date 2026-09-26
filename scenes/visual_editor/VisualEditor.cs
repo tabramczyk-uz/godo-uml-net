@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 using Godot;
 
 public partial class VisualEditor : Control
@@ -9,9 +10,31 @@ public partial class VisualEditor : Control
 
 	public event Action<UMLNode, Vector2> NodePositionChanged;
 
+	/// <summary>
+	/// Raised when the Add menu asks for a new node of the given type, name and
+	/// position. The node only appears once it has been written into the code.
+	/// </summary>
+	public event Action<UMLNodeType, string, Vector2> NodeAdded;
+
+	/// <summary>Ids of the View menu's items, as set in the scene.</summary>
+	private enum ViewMenuItem
+	{
+		ZoomIn,
+		ZoomOut,
+		ResetZoom,
+		FrameDiagram,
+	}
+
 	private const float EndingLength = 16.0f;
 	private const float EndingHalfWidth = 7.0f;
 	private const float LabelMargin = 4.0f;
+	private const float FrameMargin = 32.0f;
+
+	/// <summary>
+	/// How far each new node is nudged from the previous one when several are
+	/// added in the same spot, so they cascade instead of stacking.
+	/// </summary>
+	private static readonly Vector2 NewNodeOffset = new(24.0f, 24.0f);
 
 	private static readonly int[] ZoomLevels = [
 		20, 30, 40, 50, 60, 70, 80, 90, // 0-7
@@ -21,6 +44,7 @@ public partial class VisualEditor : Control
 		220, 240, 260, 280, // 19-22
 		300, // 23
 	];
+	private const int DefaultZoomLevel = 8;
 
 	[Export]
 	public float ScrollSensitivity { get; set; } = 5.0f;
@@ -30,6 +54,9 @@ public partial class VisualEditor : Control
 
 	private Control anchor;
 	private ColorRect grayOut;
+	private Control menuPanel;
+	private MenuBar menuBar;
+	private PopupMenu addMenu;
 
 	private UMLDiagram diagram = null;
 	private UMLNodeContainer draggedNodeContainer = null;
@@ -45,26 +72,171 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private readonly Dictionary<string, Vector2> restPositions = [];
 
-	private int zoomLevel = 8;
+	private int zoomLevel = DefaultZoomLevel;
 	private int Zoom
 	{
 		get => zoomLevel;
-		set
-		{
-			zoomLevel = Math.Clamp(value, 0, ZoomLevels.Length - 1);
-
-			float zoom = ZoomLevels[zoomLevel] / 100f;
-			Vector2 mousePos = GetLocalMousePosition();
-			Vector2 anchorLocalMouse = (mousePos - anchor.Position) / anchor.Scale;
-			anchor.Scale = Vector2.One * zoom;
-			anchor.Position = mousePos - anchorLocalMouse * anchor.Scale;
-		}
+		set => SetZoom(value, GetLocalMousePosition());
 	}
 
 	public override void _Ready()
 	{
 		anchor = GetNode<Control>("%Anchor");
 		grayOut = GetNode<ColorRect>("%GrayOut");
+		menuPanel = GetNode<Control>("%MenuPanel");
+		menuBar = GetNode<MenuBar>("%MenuBar");
+		addMenu = GetNode<PopupMenu>("%Add");
+
+		foreach (UMLNodeType type in Enum.GetValues<UMLNodeType>())
+		{
+			addMenu.AddItem(GetDisplayName(type), (int)type);
+		}
+
+		addMenu.IdPressed += OnAddMenuIdPressed;
+		GetNode<PopupMenu>("%View").IdPressed += OnViewMenuIdPressed;
+	}
+
+	/// <summary>
+	/// Changes the zoom level while keeping the canvas point under
+	/// <paramref name="pivot"/> where it is.
+	/// </summary>
+	private void SetZoom(int level, Vector2 pivot)
+	{
+		zoomLevel = Math.Clamp(level, 0, ZoomLevels.Length - 1);
+
+		float zoom = ZoomLevels[zoomLevel] / 100f;
+		Vector2 anchorLocalPivot = (pivot - anchor.Position) / anchor.Scale;
+		anchor.Scale = Vector2.One * zoom;
+		anchor.Position = pivot - anchorLocalPivot * anchor.Scale;
+	}
+
+	/// <summary>
+	/// The part of the editor the diagram is visible in, below the menu bar.
+	/// </summary>
+	private Rect2 GetCanvasRect()
+	{
+		float top = menuPanel.Size.Y;
+		return new Rect2(0.0f, top, Size.X, Mathf.Max(Size.Y - top, 0.0f));
+	}
+
+	/// <summary>
+	/// Spells an enum name out for a menu, e.g. <c>AbstractClass</c> as
+	/// <c>Abstract Class</c>.
+	/// </summary>
+	private static string GetDisplayName(UMLNodeType type)
+	{
+		string name = type.ToString();
+		var displayName = new StringBuilder();
+		for (int i = 0; i < name.Length; i++)
+		{
+			if (i > 0 && char.IsUpper(name[i]))
+			{
+				displayName.Append(' ');
+			}
+
+			displayName.Append(name[i]);
+		}
+
+		return displayName.ToString();
+	}
+
+	private void OnAddMenuIdPressed(long id)
+	{
+		if (diagram == null)
+		{
+			return;
+		}
+
+		UMLNodeType type = (UMLNodeType)id;
+		string name = diagram.GetUniqueNodeName(type.ToString());
+		NodeAdded?.Invoke(type, name, GetNewNodePosition());
+	}
+
+	/// <summary>
+	/// Where a node added from the menu goes: the middle of the visible canvas,
+	/// nudged along until it no longer lands exactly on another node.
+	/// </summary>
+	private Vector2 GetNewNodePosition()
+	{
+		Vector2 position = ((GetCanvasRect().GetCenter() - anchor.Position) / anchor.Scale).Round();
+		while (IsNodeAt(position))
+		{
+			position += NewNodeOffset;
+		}
+
+		return position;
+	}
+
+	private bool IsNodeAt(Vector2 position)
+	{
+		foreach (UMLNodeContainer container in containers.Values)
+		{
+			if (container.Position.DistanceTo(position) < NewNodeOffset.X / 2.0f)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private void OnViewMenuIdPressed(long id)
+	{
+		Vector2 canvasCenter = GetCanvasRect().GetCenter();
+		switch ((ViewMenuItem)id)
+		{
+			case ViewMenuItem.ZoomIn:
+				SetZoom(zoomLevel + 1, canvasCenter);
+				break;
+			case ViewMenuItem.ZoomOut:
+				SetZoom(zoomLevel - 1, canvasCenter);
+				break;
+			case ViewMenuItem.ResetZoom:
+				SetZoom(DefaultZoomLevel, canvasCenter);
+				break;
+			case ViewMenuItem.FrameDiagram:
+				FrameDiagram();
+				break;
+		}
+
+		QueueRedraw();
+	}
+
+	/// <summary>
+	/// Centers the diagram on the canvas at the largest zoom level, up to 100%,
+	/// that fits all of it.
+	/// </summary>
+	private void FrameDiagram()
+	{
+		Rect2 canvas = GetCanvasRect();
+		if (containers.Count == 0)
+		{
+			SetZoom(DefaultZoomLevel, canvas.GetCenter());
+			anchor.Position = canvas.Position;
+			return;
+		}
+
+		Rect2? bounds = null;
+		foreach (UMLNodeContainer container in containers.Values)
+		{
+			Rect2 box = new(container.Position, GetSize(container));
+			bounds = bounds?.Merge(box) ?? box;
+		}
+
+		Vector2 available = canvas.Size - 2.0f * FrameMargin * Vector2.One;
+		int level = DefaultZoomLevel;
+		while (level > 0 && !FitsIn(bounds.Value.Size * (ZoomLevels[level] / 100f), available))
+		{
+			level--;
+		}
+
+		SetZoom(level, Vector2.Zero);
+		anchor.Position = canvas.GetCenter() - bounds.Value.GetCenter() * anchor.Scale;
+	}
+
+	private static bool FitsIn(Vector2 size, Vector2 available)
+	{
+		return size.X <= available.X && size.Y <= available.Y;
 	}
 
 	public override void _Draw()
@@ -321,6 +493,7 @@ public partial class VisualEditor : Control
 	{
 		bool isDiagramRendered = newDiagram != null;
 		grayOut.Visible = !isDiagramRendered;
+		menuBar.SetMenuDisabled(addMenu.GetIndex(), !isDiagramRendered);
 		ToggleNodes(isDiagramRendered);
 
 		if (!isDiagramRendered)

@@ -49,6 +49,12 @@ public partial class CodeEditor : Control
 		SubmitCode();
 	}
 
+	public void AddNode(UMLNodeType type, string name, Vector2 position)
+	{
+		codeEdit.Text = UMLCodeWriter.AddNode(codeEdit.Text, type, name, position);
+		SubmitCode();
+	}
+
 	public void ShowError(string message, int lineNumber)
 	{
 		if (errorLine != -1)
