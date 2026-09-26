@@ -164,6 +164,21 @@ public class UMLAutoLayoutTests
 	}
 
 	[Fact]
+	public void DependsOnlyOnWhereThePusherIsNow()
+	{
+		Rect2[] rest = [Box(0, 0), Box(150, 0), Box(0, 120)];
+
+		Vector2[] untouched = UMLAutoLayout.Separate(rest, [Box(600, 600)]);
+		UMLAutoLayout.Separate(rest, [Box(40, 20)]);
+		Vector2[] pushed = UMLAutoLayout.Separate(rest, [Box(40, 20)]);
+		Vector2[] returned = UMLAutoLayout.Separate(rest, [Box(600, 600)]);
+
+		Assert.Equal(rest.Select(box => box.Position), untouched);
+		Assert.NotEqual(untouched, pushed);
+		Assert.Equal(untouched, returned);
+	}
+
+	[Fact]
 	public void IsDeterministic()
 	{
 		string[] source = ["class A", "class B", "class C", "B --|> A", "C --|> A", "C --> B"];

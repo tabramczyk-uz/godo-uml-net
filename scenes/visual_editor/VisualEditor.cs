@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using Godot;
 
 public partial class VisualEditor : Control
@@ -37,11 +36,14 @@ public partial class VisualEditor : Control
 	private readonly Dictionary<UMLNode, UMLNodeContainer> containers = [];
 
 	/// <summary>
-	/// Where the auto-positioned nodes were last shown, by name. Their positions
-	/// never reach the source, so without this every re-parse would snap them back
-	/// to the layered layout and undo whatever the force field pushed them into.
+	/// Where each auto-positioned node sits when nothing pushes it, by name: the
+	/// spot the layered layout gave it when it first appeared. Every push is
+	/// computed afresh from these, so where a node is shown depends only on where
+	/// the other nodes are now, not on how they got there. Keeping them here also
+	/// stops a re-parse from reshuffling the layout when the set of auto-positioned
+	/// nodes changes.
 	/// </summary>
-	private readonly Dictionary<string, Vector2> autoPositions = [];
+	private readonly Dictionary<string, Vector2> restPositions = [];
 
 	private int zoomLevel = 8;
 	private int Zoom
@@ -347,9 +349,9 @@ public partial class VisualEditor : Control
 				AddNodeContainer(node.ToContainer());
 			}
 
-			if (node.IsAutoPositioned && autoPositions.TryGetValue(node.Name, out Vector2 position))
+			if (node.IsAutoPositioned)
 			{
-				containers[node].Position = position;
+				restPositions.TryAdd(node.Name, node.Position.Value);
 			}
 		}
 
@@ -393,41 +395,42 @@ public partial class VisualEditor : Control
 	/// <summary>
 	/// Shoves the auto-positioned containers out of the way of every other node,
 	/// and of <paramref name="dragged"/> in particular, so they part around it as
-	/// it moves. The pushes accumulate from wherever the containers already are,
-	/// which keeps the motion continuous while dragging. Only container positions
-	/// change; the model and the source stay untouched.
+	/// it moves. Each push starts over from the rest positions, so moving the
+	/// dragged node back lets the others fall back to exactly where they were.
+	/// Only container positions change; the model and the source stay untouched.
 	/// </summary>
 	private void PushAutoPositioned(UMLNodeContainer dragged)
 	{
 		List<UMLNodeContainer> movable = [];
+		List<Rect2> restBoxes = [];
 		List<Rect2> fixedBoxes = [];
 		foreach ((UMLNode node, UMLNodeContainer container) in containers)
 		{
 			if (node.IsAutoPositioned && container != dragged)
 			{
 				movable.Add(container);
+				restBoxes.Add(new Rect2(restPositions[node.Name], GetSize(container)));
 			}
 			else
 			{
-				fixedBoxes.Add(GetBox(container));
+				fixedBoxes.Add(new Rect2(container.Position, GetSize(container)));
 			}
 		}
 
-		Vector2[] positions = UMLAutoLayout.Separate(movable.Select(GetBox).ToList(), fixedBoxes);
+		Vector2[] positions = UMLAutoLayout.Separate(restBoxes, fixedBoxes);
 		for (int i = 0; i < movable.Count; i++)
 		{
 			movable[i].Position = positions[i];
-			autoPositions[movable[i].UmlNode.Name] = positions[i];
 		}
 	}
 
 	/// <summary>
-	/// The area a container covers on the canvas. A container added this frame
-	/// has not been sized by its layout yet, so its minimum size stands in.
+	/// The size of a container on the canvas. A container added this frame has
+	/// not been sized by its layout yet, so its minimum size stands in.
 	/// </summary>
-	private static Rect2 GetBox(UMLNodeContainer container)
+	private static Vector2 GetSize(UMLNodeContainer container)
 	{
-		return new Rect2(container.Position, container.Size.Max(container.GetCombinedMinimumSize()));
+		return container.Size.Max(container.GetCombinedMinimumSize());
 	}
 
 	private void OnNodeContainerDropped(UMLNodeContainer container)
@@ -443,9 +446,9 @@ public partial class VisualEditor : Control
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)
 	{
-		if (autoPositions.TryGetValue(node.Name, out Vector2 position))
+		if (restPositions.TryGetValue(node.Name, out Vector2 position))
 		{
-			autoPositions[newName] = position;
+			restPositions[newName] = position;
 		}
 
 		NodeNameChanged?.Invoke(node, newName);
