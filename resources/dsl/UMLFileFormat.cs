@@ -1,4 +1,5 @@
 using System;
+using Godot;
 
 /// <summary>
 /// GodoUML's own file format: a <c>.guml</c> file holds a diagram's source code
@@ -34,5 +35,26 @@ public static class UMLFileFormat
 	public static string NormalizeLineEndings(string text)
 	{
 		return text.Replace("\r\n", "\n").Replace('\r', '\n');
+	}
+
+	/// <summary>
+	/// Says in plain words why a file could not be read or written, for the
+	/// error codes Godot's file access reports.
+	/// </summary>
+	public static string DescribeError(Error error)
+	{
+		return error switch
+		{
+			Error.FileNotFound => "The file or its folder does not exist.",
+			Error.FileBadDrive => "The drive is not available.",
+			Error.FileBadPath => "The path is not valid.",
+			Error.FileNoPermission or Error.Unauthorized =>
+				"You do not have permission to access it.",
+			Error.FileAlreadyInUse => "Another program is using it.",
+			Error.FileCantRead => "It could not be read.",
+			Error.FileCantWrite => "It could not be written. The disk may be full or read-only.",
+			Error.FileCorrupt => "The file is damaged.",
+			_ => $"Something went wrong ({error}).",
+		};
 	}
 }

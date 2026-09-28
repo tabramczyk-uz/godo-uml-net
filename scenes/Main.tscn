@@ -81,3 +81,7 @@ use_native_dialog = true
 unique_name_in_owner = true
 title = "Unsaved Changes"
 ok_button_text = "Save"
+
+[node name="ErrorDialog" type="AcceptDialog" parent="." unique_id=1395027468]
+unique_name_in_owner = true
+title = "Error"

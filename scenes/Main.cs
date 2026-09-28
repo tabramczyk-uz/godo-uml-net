@@ -21,6 +21,7 @@ public partial class Main : Control
 	private FileDialog openDialog;
 	private FileDialog saveDialog;
 	private ConfirmationDialog unsavedDialog;
+	private AcceptDialog errorDialog;
 
 	private UMLDocument document;
 
@@ -59,6 +60,8 @@ public partial class Main : Control
 		unsavedDialog.Confirmed += () => SaveThen(TakePendingAction());
 		unsavedDialog.CustomAction += OnUnsavedDialogCustomAction;
 		unsavedDialog.Canceled += () => pendingAction = null;
+
+		errorDialog = GetNode<AcceptDialog>("%ErrorDialog");
 
 		codeEditor = GetNode<CodeEditor>("%CodeEditor");
 		codeEditor.CodeChanged += OnCodeChanged;
@@ -205,8 +208,7 @@ public partial class Main : Control
 		using FileAccess file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
 		if (file == null)
 		{
-			// TODO: Show error message to user
-			GD.PrintErr($"Could not open {path}: {FileAccess.GetOpenError()}");
+			ShowFileError("Open", path, FileAccess.GetOpenError());
 			return;
 		}
 
@@ -256,16 +258,37 @@ public partial class Main : Control
 		using FileAccess file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
 		if (file == null)
 		{
-			// TODO: Show error message to user
-			GD.PrintErr($"Could not save {path}: {FileAccess.GetOpenError()}");
+			ShowFileError("Save", path, FileAccess.GetOpenError());
 			return false;
 		}
 
-		file.StoreString(codeEditor.Code);
+		if (!file.StoreString(codeEditor.Code))
+		{
+			ShowFileError("Save", path, file.GetError());
+			return false;
+		}
+
 		document.MarkSaved(path, codeEditor.Code);
 		RememberFile(path);
 		UpdateTitle();
 		return true;
+	}
+
+	/// <summary>
+	/// Tells the user that <paramref name="verb"/>, "Open" or "Save", failed
+	/// for <paramref name="path"/>, and why, and logs it too.
+	/// </summary>
+	private void ShowFileError(string verb, string path, Error error)
+	{
+		GD.PrintErr($"Could not {verb.ToLowerInvariant()} {path}: {error}");
+
+		errorDialog.Title = $"Could Not {verb}";
+		errorDialog.DialogText =
+			$"Could not {verb.ToLowerInvariant()} {path}.\n{UMLFileFormat.DescribeError(error)}";
+
+		// Deferred, because the file dialog that reported the file may still be
+		// open, and only one dialog can hold the window at a time.
+		errorDialog.CallDeferred(Window.MethodName.PopupCentered, Vector2I.Zero);
 	}
 
 	private void OnCodeChanged(string code)

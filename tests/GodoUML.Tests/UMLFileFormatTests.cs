@@ -1,9 +1,27 @@
+using Godot;
 using Xunit;
 
 namespace GodoUML.Tests;
 
 public class UMLFileFormatTests
 {
+	[Theory]
+	[InlineData(Error.FileNotFound, "The file or its folder does not exist.")]
+	[InlineData(Error.FileNoPermission, "You do not have permission to access it.")]
+	[InlineData(Error.Unauthorized, "You do not have permission to access it.")]
+	[InlineData(Error.FileAlreadyInUse, "Another program is using it.")]
+	[InlineData(Error.FileCantWrite, "It could not be written. The disk may be full or read-only.")]
+	public void DescribesFileErrorsInPlainWords(Error error, string description)
+	{
+		Assert.Equal(description, UMLFileFormat.DescribeError(error));
+	}
+
+	[Fact]
+	public void NamesTheCodeOfErrorsItHasNoWordsFor()
+	{
+		Assert.Equal("Something went wrong (OutOfMemory).", UMLFileFormat.DescribeError(Error.OutOfMemory));
+	}
+
 	[Theory]
 	[InlineData("C:/diagrams/shop", "C:/diagrams/shop.guml")]
 	[InlineData("C:/diagrams/shop.guml", "C:/diagrams/shop.guml")]
