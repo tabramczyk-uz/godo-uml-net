@@ -35,7 +35,25 @@ public partial class UMLNodeContainer : Control
 	}
 
 	public virtual void Update() {
-		nameLabel.Text = $"[center][b]{umlNode.Name}[/b][/center]";
+		nameLabel.Text = FormatName();
+	}
+
+	/// <summary>
+	/// The name label's BBCode. Node types whose notation shows the name
+	/// differently override it.
+	/// </summary>
+	protected virtual string FormatName()
+	{
+		return $"[center][b]{umlNode.Name}[/b][/center]";
+	}
+
+	/// <summary>
+	/// The theme's node box. Node types drawn as something other than a box
+	/// take their colors and line width from it, so every node matches.
+	/// </summary>
+	protected StyleBoxFlat GetBoxStyle()
+	{
+		return GetThemeStylebox("panel", "PanelContainer") as StyleBoxFlat;
 	}
 
 	public override void _Ready()

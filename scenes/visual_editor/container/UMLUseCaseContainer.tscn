@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://dimcc2iq5rp8f"]
+
+[ext_resource type="PackedScene" uid="uid://255l5qlme474" path="res://scenes/visual_editor/container/UMLNodeContainer.tscn" id="1_ucbase"]
+[ext_resource type="Script" uid="uid://de7l503kseicx" path="res://scenes/visual_editor/container/UMLUseCaseContainer.cs" id="2_ucscript"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_ucpad"]
+content_margin_left = 18.0
+content_margin_top = 8.0
+content_margin_right = 18.0
+content_margin_bottom = 8.0
+
+[node name="UMLUseCaseContainer" unique_id=1592736041 instance=ExtResource("1_ucbase")]
+script = ExtResource("2_ucscript")
+
+[node name="PanelContainer" parent="." index="0" unique_id=250233138]
+custom_minimum_size = Vector2(140, 0)
+theme_override_styles/panel = SubResource("StyleBoxEmpty_ucpad")

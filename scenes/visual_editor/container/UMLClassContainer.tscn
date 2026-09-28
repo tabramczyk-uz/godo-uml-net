@@ -31,9 +31,11 @@ autowrap_mode = 0
 vertical_alignment = 1
 
 [node name="HSeparator2" type="HSeparator" parent="PanelContainer/VBoxContainer" index="3" unique_id=1439607529]
+unique_name_in_owner = true
 layout_mode = 2
 
 [node name="MethodContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer" index="4" unique_id=1107410764]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8

@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://b8giogud0x4nj"]
+
+[ext_resource type="PackedScene" uid="uid://255l5qlme474" path="res://scenes/visual_editor/container/UMLNodeContainer.tscn" id="1_acbase"]
+[ext_resource type="Script" uid="uid://bygw3k8kmlja3" path="res://scenes/visual_editor/container/UMLActorContainer.cs" id="2_acscript"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_acpad"]
+content_margin_top = 4.0
+
+[node name="UMLActorContainer" unique_id=736158402 instance=ExtResource("1_acbase")]
+script = ExtResource("2_acscript")
+
+[node name="PanelContainer" parent="." index="0" unique_id=250233138]
+theme_override_styles/panel = SubResource("StyleBoxEmpty_acpad")
+
+[node name="Figure" type="Control" parent="PanelContainer/VBoxContainer" parent_id_path=PackedInt32Array(1853191662) index="0" unique_id=1846305517]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 60)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2

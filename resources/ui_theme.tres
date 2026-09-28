@@ -2,6 +2,8 @@
 
 [ext_resource type="FontFile" path="res://resources/font/default_font.tres" id="1"]
 [ext_resource type="FontFile" path="res://resources/font/bold_font.tres" id="2"]
+[ext_resource type="FontFile" uid="uid://dbmny2cikr4wp" path="res://resources/font/FiraCode-VariableFont_wght.ttf" id="3_regular"]
+[ext_resource type="FontFile" uid="uid://0utnaf0n4s0m" path="res://resources/font/FiraCode-Bold.ttf" id="4_bold"]
 
 [sub_resource type="StyleBoxLine" id="2"]
 color = Color(0.623529, 0.623529, 0.623529, 1)
@@ -17,6 +19,14 @@ border_width_right = 2
 border_width_bottom = 2
 border_color = Color(0.623529, 0.623529, 0.623529, 1)
 
+[sub_resource type="FontVariation" id="FontVariation_italic"]
+base_font = ExtResource("3_regular")
+variation_transform = Transform2D(1, 0.2, 0, 1, 0, 0)
+
+[sub_resource type="FontVariation" id="FontVariation_bolditalic"]
+base_font = ExtResource("4_bold")
+variation_transform = Transform2D(1, 0.2, 0, 1, 0, 0)
+
 [resource]
 default_font = ExtResource("1")
 HSeparator/constants/separation = 0
@@ -27,3 +37,5 @@ MarginContainer/constants/margin_right = 8
 MarginContainer/constants/margin_top = 8
 PanelContainer/styles/panel = SubResource("1")
 RichTextLabel/fonts/bold_font = ExtResource("2")
+RichTextLabel/fonts/bold_italics_font = SubResource("FontVariation_bolditalic")
+RichTextLabel/fonts/italics_font = SubResource("FontVariation_italic")

@@ -657,10 +657,22 @@ public partial class VisualEditor : Control
 		Vector2 fromCenter = fromRect.GetCenter();
 		Vector2 toCenter = toRect.GetCenter();
 
-		fromEdge = ClipToRect(fromRect, fromCenter, toCenter);
-		toEdge = ClipToRect(toRect, toCenter, fromCenter);
+		fromEdge = ClipToOutline(relationship.From, fromRect, toCenter);
+		toEdge = ClipToOutline(relationship.To, toRect, fromCenter);
 
 		return (toEdge - fromEdge).LengthSquared() >= 0.0001f;
+	}
+
+	/// <summary>
+	/// Where a line from the middle of <paramref name="node"/> toward
+	/// <paramref name="towards"/> crosses the node's outline: its ellipse for a
+	/// use case, its bounding box for everything else.
+	/// </summary>
+	private static Vector2 ClipToOutline(UMLNode node, Rect2 rect, Vector2 towards)
+	{
+		return node.Type == UMLNodeType.UseCase
+			? UMLGeometry.ClipToEllipse(rect, towards)
+			: ClipToRect(rect, rect.GetCenter(), towards);
 	}
 
 	private void DrawRelationship(UMLRelationship relationship, Color color)

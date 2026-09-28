@@ -6,6 +6,8 @@ public partial class UMLClassContainer : UMLNodeContainer
 {
 	private RichTextLabel attributesLabel;
 	private RichTextLabel methodsLabel;
+	private Control methodSeparator;
+	private Control methodContainer;
 
 	private UMLClass umlClass;
 	public UMLClass UmlClass
@@ -28,13 +30,37 @@ public partial class UMLClassContainer : UMLNodeContainer
 		attributesLabel.Text = Format(umlClass.Attributes);
 		methodsLabel.Text = Format(umlClass.Methods);
 
+		// An enumeration is drawn with just its literals unless it declares
+		// operations too.
+		bool showMethods = umlClass.Type != UMLNodeType.Enum || umlClass.Methods.Count > 0;
+		methodSeparator.Visible = showMethods;
+		methodContainer.Visible = showMethods;
+
 		base.Update();
+	}
+
+	/// <summary>
+	/// The name under its stereotype, if the classifier's notation has one, and
+	/// in italics for an abstract class.
+	/// </summary>
+	protected override string FormatName()
+	{
+		string stereotype = UMLNotation.GetStereotype(umlClass.Type);
+		string name = umlClass.Type == UMLNodeType.AbstractClass
+			? $"[i]{umlClass.Name}[/i]"
+			: umlClass.Name;
+
+		return stereotype == null
+			? $"[center][b]{name}[/b][/center]"
+			: $"[center]{stereotype}\n[b]{name}[/b][/center]";
 	}
 
 	public override void _Ready()
 	{
 		attributesLabel = GetNode<RichTextLabel>("%Attributes");
 		methodsLabel = GetNode<RichTextLabel>("%Methods");
+		methodSeparator = GetNode<Control>("%HSeparator2");
+		methodContainer = GetNode<Control>("%MethodContainer");
 
 		base._Ready();
 	}

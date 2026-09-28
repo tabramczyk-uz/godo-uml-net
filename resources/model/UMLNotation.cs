@@ -39,6 +39,20 @@ public static class UMLNotation
 			: string.Empty;
 	}
 
+	/// <summary>
+	/// The stereotype a classifier's notation shows above its name, such as
+	/// <c>«interface»</c>, or <c>null</c> for the node types that show none.
+	/// </summary>
+	public static string GetStereotype(UMLNodeType type)
+	{
+		return type switch
+		{
+			UMLNodeType.Interface => "«interface»",
+			UMLNodeType.Enum => "«enumeration»",
+			_ => null,
+		};
+	}
+
 	public static UMLVisibility GetVisibility(string symbol)
 	{
 		return symbol != null
