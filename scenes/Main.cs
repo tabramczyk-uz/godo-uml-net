@@ -9,6 +9,7 @@ public partial class Main : Control
 		SaveAs = 0,
 		Open = 1,
 		Save = 2,
+		New = 3,
 	}
 
 	/// <summary>The action of the unsaved-changes dialog's Don't Save button.</summary>
@@ -39,6 +40,7 @@ public partial class Main : Control
 	{
 		fileMenu = GetNode<PopupMenu>("%File");
 		fileMenu.IdPressed += OnFileMenuIdPressed;
+		SetShortcut(FileMenuItem.New, Key.N);
 		SetShortcut(FileMenuItem.Open, Key.O);
 		SetShortcut(FileMenuItem.Save, Key.S);
 		SetShortcut(FileMenuItem.SaveAs, Key.S, shift: true);
@@ -99,6 +101,9 @@ public partial class Main : Control
 	{
 		switch ((FileMenuItem)id)
 		{
+			case FileMenuItem.New:
+				ConfirmDiscardingChanges("starting a new diagram", NewDiagram);
+				break;
 			case FileMenuItem.Open:
 				ConfirmDiscardingChanges("opening another diagram", () => openDialog.PopupCentered());
 				break;
@@ -110,6 +115,21 @@ public partial class Main : Control
 				saveDialog.PopupCentered();
 				break;
 		}
+	}
+
+	/// <summary>
+	/// Replaces the diagram with an empty, untitled one, so the next Save asks
+	/// where to put it. The Save As dialog stays in the same folder but forgets
+	/// the old file name, so it cannot suggest overwriting that file.
+	/// </summary>
+	private void NewDiagram()
+	{
+		visualEditor.ForgetLayout();
+		codeEditor.LoadCode(string.Empty);
+		visualEditor.FrameDiagram();
+		document = new UMLDocument(codeEditor.Code);
+		saveDialog.CurrentFile = string.Empty;
+		UpdateTitle();
 	}
 
 	/// <summary>
