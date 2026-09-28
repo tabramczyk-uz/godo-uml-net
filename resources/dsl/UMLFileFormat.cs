@@ -25,4 +25,14 @@ public static class UMLFileFormat
 			? path
 			: $"{path}.{Extension}";
 	}
+
+	/// <summary>
+	/// <paramref name="text"/> with Windows and old Mac line endings turned into
+	/// the plain <c>\n</c> the parser and the code writers split lines on, so a
+	/// file edited outside GodoUML reads back the same.
+	/// </summary>
+	public static string NormalizeLineEndings(string text)
+	{
+		return text.Replace("\r\n", "\n").Replace('\r', '\n');
+	}
 }

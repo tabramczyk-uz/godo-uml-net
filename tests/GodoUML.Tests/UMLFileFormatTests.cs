@@ -15,6 +15,28 @@ public class UMLFileFormatTests
 		Assert.Equal(expected, UMLFileFormat.WithExtension(path));
 	}
 
+	[Theory]
+	[InlineData("class A\r\nclass B\r\n", "class A\nclass B\n")]
+	[InlineData("class A\rclass B", "class A\nclass B")]
+	[InlineData("class A\nclass B\n", "class A\nclass B\n")]
+	[InlineData("class A\r\n\r\nclass B", "class A\n\nclass B")]
+	public void NormalizesLineEndingsToLineFeeds(string text, string expected)
+	{
+		Assert.Equal(expected, UMLFileFormat.NormalizeLineEndings(text));
+	}
+
+	[Fact]
+	public void ReadsAWindowsLineEndedFileAsTheSameDiagram()
+	{
+		string windows = "class Foo\r\n\tposition: [10, 20]\r\nclass Bar\r\nFoo --> Bar // uses\r\n";
+
+		UMLParseResult result = UMLParser.Parse(UMLFileFormat.NormalizeLineEndings(windows));
+
+		Assert.True(result.IsSuccess, result.ErrorMessage);
+		Assert.Equal(2, result.Diagram.Nodes.Count);
+		Assert.Single(result.Diagram.Relationships);
+	}
+
 	[Fact]
 	public void FiltersFileDialogsToGumlFiles()
 	{

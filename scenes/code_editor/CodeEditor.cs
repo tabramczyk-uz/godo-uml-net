@@ -40,6 +40,18 @@ public partial class CodeEditor : Control
 		CodeChanged?.Invoke(codeEdit.Text);
 	}
 
+	/// <summary>
+	/// Replaces the whole source with <paramref name="code"/>, as when opening a
+	/// file, and parses it straight away. Undo starts afresh, so it cannot bring
+	/// back the previous diagram.
+	/// </summary>
+	public void LoadCode(string code)
+	{
+		codeEdit.Text = code;
+		codeEdit.ClearUndoHistory();
+		SubmitCode();
+	}
+
 	public void ChangeNodeName(UMLNode node, string newName)
 	{
 		codeEdit.Text = UMLCodeWriter.RenameNode(codeEdit.Text, node, newName);

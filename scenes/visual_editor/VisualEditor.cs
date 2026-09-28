@@ -575,11 +575,23 @@ public partial class VisualEditor : Control
 	}
 
 	/// <summary>
+	/// Drops the remembered rest positions of auto-positioned nodes, so the next
+	/// diagram is laid out afresh instead of inheriting spots from one that
+	/// merely used the same node names.
+	/// </summary>
+	public void ForgetLayout()
+	{
+		restPositions.Clear();
+	}
+
+	/// <summary>
 	/// Centers the diagram on the canvas at the largest zoom level, up to 100%,
 	/// that fits all of it.
 	/// </summary>
-	private void FrameDiagram()
+	public void FrameDiagram()
 	{
+		QueueRedraw();
+
 		Rect2 canvas = GetCanvasRect();
 		if (containers.Count == 0)
 		{

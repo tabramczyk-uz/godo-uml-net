@@ -5,16 +5,22 @@ public partial class Main : Control
 	/// <summary>Ids of the File menu's items, as set in the scene.</summary>
 	private enum FileMenuItem
 	{
-		Save,
+		Save = 0,
+		Open = 1,
 	}
 
 	private CodeEditor codeEditor;
 	private VisualEditor visualEditor;
+	private FileDialog openDialog;
 	private FileDialog saveDialog;
 
 	public override void _Ready()
 	{
 		GetNode<PopupMenu>("%File").IdPressed += OnFileMenuIdPressed;
+
+		openDialog = GetNode<FileDialog>("%OpenDialog");
+		openDialog.Filters = [UMLFileFormat.DialogFilter];
+		openDialog.FileSelected += OnOpenFileSelected;
 
 		saveDialog = GetNode<FileDialog>("%SaveDialog");
 		saveDialog.Filters = [UMLFileFormat.DialogFilter];
@@ -35,10 +41,45 @@ public partial class Main : Control
 	{
 		switch ((FileMenuItem)id)
 		{
+			case FileMenuItem.Open:
+				openDialog.PopupCentered();
+				break;
 			case FileMenuItem.Save:
 				saveDialog.PopupCentered();
 				break;
 		}
+	}
+
+	/// <summary>
+	/// Replaces the diagram with the one in the chosen file, laid out afresh and
+	/// framed on the canvas.
+	/// </summary>
+	private void OnOpenFileSelected(string path)
+	{
+		using FileAccess file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+		if (file == null)
+		{
+			// TODO: Show error message to user
+			GD.PrintErr($"Could not open {path}: {FileAccess.GetOpenError()}");
+			return;
+		}
+
+		string code = UMLFileFormat.NormalizeLineEndings(file.GetAsText());
+
+		visualEditor.ForgetLayout();
+		codeEditor.LoadCode(code);
+		visualEditor.FrameDiagram();
+		RememberFile(path);
+	}
+
+	/// <summary>
+	/// Starts both file dialogs from <paramref name="path"/> next time, so Save
+	/// suggests the file that was opened and Open the one that was saved.
+	/// </summary>
+	private void RememberFile(string path)
+	{
+		openDialog.CurrentPath = path;
+		saveDialog.CurrentPath = path;
 	}
 
 	/// <summary>
@@ -58,9 +99,7 @@ public partial class Main : Control
 		}
 
 		file.StoreString(codeEditor.Code);
-
-		// The next save starts from the file just written.
-		saveDialog.CurrentPath = path;
+		RememberFile(path);
 	}
 
 	private void OnCodeChanged(string code)
