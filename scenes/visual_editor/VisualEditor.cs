@@ -39,6 +39,12 @@ public partial class VisualEditor : Control
 	public event Action<IReadOnlyList<UMLNode>> NodesRemoved;
 
 	/// <summary>
+	/// Raised when the node menu's Reset Position is chosen, with the nodes
+	/// whose position to delete from the code, so the layout places them again.
+	/// </summary>
+	public event Action<IReadOnlyList<UMLNode>> NodePositionsReset;
+
+	/// <summary>
 	/// Raised for Undo and Redo pressed on the canvas. Every canvas edit is an
 	/// edit of the code, so they step through the code editor's history.
 	/// </summary>
@@ -61,6 +67,7 @@ public partial class VisualEditor : Control
 	{
 		Rename,
 		Delete,
+		ResetPosition,
 	}
 
 	/// <summary>Ids of the View menu's items, as set in the scene.</summary>
@@ -1232,18 +1239,28 @@ public partial class VisualEditor : Control
 		SelectOnPress(clicked.UmlNode.Name, false);
 		menuTargets = GetSelectionGroup(clicked);
 
+		bool single = menuTargets.Count == 1;
 		nodeMenu.Clear();
-		if (menuTargets.Count == 1)
+		if (single)
 		{
 			nodeMenu.AddItem("Rename...", (int)NodeMenuItem.Rename);
 			nodeMenu.AddSubmenuNodeItem("Connect from Here", connectFromHereMenu);
-			nodeMenu.AddSeparator();
-			nodeMenu.AddItem("Delete Node", (int)NodeMenuItem.Delete, Key.Delete);
 		}
-		else
+
+		// Left out when every target is already placed by the layout, as it
+		// would have nothing to delete.
+		if (menuTargets.Exists(target => !target.UmlNode.IsAutoPositioned))
 		{
-			nodeMenu.AddItem($"Delete {menuTargets.Count} Nodes", (int)NodeMenuItem.Delete, Key.Delete);
+			nodeMenu.AddItem(single ? "Reset Position" : "Reset Positions", (int)NodeMenuItem.ResetPosition);
 		}
+
+		if (nodeMenu.ItemCount > 0)
+		{
+			nodeMenu.AddSeparator();
+		}
+
+		string delete = single ? "Delete Node" : $"Delete {menuTargets.Count} Nodes";
+		nodeMenu.AddItem(delete, (int)NodeMenuItem.Delete, Key.Delete);
 
 		nodeMenu.Popup(new Rect2I((Vector2I)eventPosition, Vector2I.Zero));
 	}
@@ -1266,6 +1283,11 @@ public partial class VisualEditor : Control
 				List<UMLNode> nodes = menuTargets.ConvertAll(container => container.UmlNode);
 				menuTargets = [];
 				NodesRemoved?.Invoke(nodes);
+				break;
+			case NodeMenuItem.ResetPosition:
+				List<UMLNode> placed = menuTargets.ConvertAll(container => container.UmlNode);
+				menuTargets = [];
+				NodePositionsReset?.Invoke(placed);
 				break;
 		}
 	}

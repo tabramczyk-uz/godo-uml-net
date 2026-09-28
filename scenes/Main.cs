@@ -118,6 +118,7 @@ public partial class Main : Control
 		visualEditor.UndoRequested += codeEditor.Undo;
 		visualEditor.RedoRequested += codeEditor.Redo;
 		visualEditor.NodesPasted += codeEditor.AppendBlock;
+		visualEditor.NodePositionsReset += codeEditor.ResetNodePositions;
 
 		document = new UMLDocument(codeEditor.Code);
 		UpdateTitle();

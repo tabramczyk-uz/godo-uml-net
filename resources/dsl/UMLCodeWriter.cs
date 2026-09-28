@@ -78,27 +78,71 @@ public static class UMLCodeWriter
 			return code;
 		}
 
-		string positionKeyword = UMLSyntax.GetKeyword(UMLNodeProperty.Position);
 		string positionLine =
-			$"{UMLSyntax.Indent}{positionKeyword}: {UMLSyntax.FormatPosition(newPosition)}";
+			$"{UMLSyntax.Indent}{UMLSyntax.GetKeyword(UMLNodeProperty.Position)}: "
+			+ UMLSyntax.FormatPosition(newPosition);
 
-		foreach (int i in GetBodyLines(lines, declarationLineNumber))
+		int i = FindPositionLine(lines, declarationLineNumber);
+		if (i != -1)
 		{
 			UMLSyntax.SplitComment(lines[i], out string codePart, out string comment);
-			string content = codePart.TrimEnd();
-
-			Match propertyMatch = UMLSyntax.PropertyRegex().Match(content[1..]);
-			if (propertyMatch.Success && propertyMatch.Groups[1].Value == positionKeyword)
-			{
-				string separator = codePart[content.Length..];
-				lines[i] = comment.Length == 0 ? positionLine : positionLine + separator + comment;
-				return string.Join("\n", lines);
-			}
+			string separator = codePart[codePart.TrimEnd().Length..];
+			lines[i] = comment.Length == 0 ? positionLine : positionLine + separator + comment;
+			return string.Join("\n", lines);
 		}
 
 		var updatedLines = new List<string>(lines);
 		updatedLines.Insert(declarationLineNumber + 1, positionLine);
 		return string.Join("\n", updatedLines);
+	}
+
+	/// <summary>
+	/// Deletes the position lines of the <paramref name="nodes"/>, so the
+	/// layout places them again, all in one edit. Nodes without a position
+	/// line are left as they are, and so is every other line, comments on the
+	/// deleted lines aside.
+	/// </summary>
+	public static string RemoveNodePositions(string code, IEnumerable<UMLNode> nodes)
+	{
+		string[] lines = code.Split('\n');
+		var removed = new HashSet<int>();
+
+		foreach (UMLNode node in nodes)
+		{
+			int declarationLineNumber = FindDeclarationLine(lines, node);
+			if (declarationLineNumber == -1)
+			{
+				continue;
+			}
+
+			int positionLineNumber = FindPositionLine(lines, declarationLineNumber);
+			if (positionLineNumber != -1)
+			{
+				removed.Add(positionLineNumber);
+			}
+		}
+
+		return removed.Count == 0 ? code : JoinExcept(lines, removed);
+	}
+
+	/// <summary>
+	/// The line of the position property belonging to the declaration on
+	/// <paramref name="declarationLineNumber"/>, or -1 when it has none.
+	/// </summary>
+	private static int FindPositionLine(string[] lines, int declarationLineNumber)
+	{
+		string positionKeyword = UMLSyntax.GetKeyword(UMLNodeProperty.Position);
+		foreach (int i in GetBodyLines(lines, declarationLineNumber))
+		{
+			string content = UMLSyntax.StripComment(lines[i]);
+			Match propertyMatch = UMLSyntax.PropertyRegex().Match(content[1..]);
+			if (propertyMatch.Success && propertyMatch.Groups[1].Value == positionKeyword)
+			{
+				return i;
+			}
+		}
+
+		return -1;
 	}
 
 	/// <summary>

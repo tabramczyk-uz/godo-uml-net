@@ -88,6 +88,16 @@ public partial class CodeEditor : Control
 	}
 
 	/// <summary>
+	/// Deletes the nodes' position lines in one edit, so the layout places
+	/// them again, then parses once.
+	/// </summary>
+	public void ResetNodePositions(IReadOnlyList<UMLNode> nodes)
+	{
+		codeEdit.Text = UMLCodeWriter.RemoveNodePositions(codeEdit.Text, nodes);
+		SubmitCode();
+	}
+
+	/// <summary>
 	/// Deletes the nodes, and every relationship touching them, in one edit,
 	/// then parses once.
 	/// </summary>

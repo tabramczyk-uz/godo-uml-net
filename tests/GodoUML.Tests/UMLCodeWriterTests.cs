@@ -109,6 +109,45 @@ public class UMLCodeWriterTests
 	}
 
 	[Fact]
+	public void RemovesOnlyThePositionLinesOfTheNodesAskedFor()
+	{
+		string code = string.Join(
+			"\n",
+			"class A // keep me",
+			"\tposition: [1, 2] // placed by hand",
+			"\t+ field: Integer",
+			"class B",
+			"\t+ other: Integer",
+			"\tposition: [3, 4]",
+			"class C",
+			"\tposition: [5, 6]",
+			"A --> B"
+		);
+		UMLDiagram diagram = Parse(code);
+
+		string reset = UMLCodeWriter.RemoveNodePositions(code, [diagram.FindNode("A"), diagram.FindNode("B")]);
+
+		Assert.Equal(
+			"class A // keep me\n\t+ field: Integer\nclass B\n\t+ other: Integer\nclass C\n\tposition: [5, 6]\nA --> B",
+			reset
+		);
+		UMLDiagram reparsed = Parse(reset);
+		Assert.Null(reparsed.FindNode("A").Position);
+		Assert.Null(reparsed.FindNode("B").Position);
+		Assert.Equal(new Vector2(5, 6), reparsed.FindNode("C").Position);
+	}
+
+	[Fact]
+	public void ResettingANodeWithoutAPositionLeavesTheCodeAlone()
+	{
+		string code = "class A\n\t+ field: Integer\nclass B\n\tposition: [3, 4]";
+		UMLDiagram diagram = Parse(code);
+
+		Assert.Equal(code, UMLCodeWriter.RemoveNodePositions(code, [diagram.FindNode("A")]));
+		Assert.Equal(code, UMLCodeWriter.RemoveNodePositions(code, [new UMLClass("Ghost")]));
+	}
+
+	[Fact]
 	public void MovingNoNodesLeavesTheCodeAlone()
 	{
 		string code = "class A\n\tposition: [1, 2]";
