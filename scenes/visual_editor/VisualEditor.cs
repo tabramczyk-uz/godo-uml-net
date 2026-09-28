@@ -22,6 +22,12 @@ public partial class VisualEditor : Control
 	/// </summary>
 	public event Action<UMLNode, UMLNode, UMLRelationshipType, UMLRelationshipDirection> RelationshipAdded;
 
+	/// <summary>
+	/// Raised when the Connect menu's Delete Connection has had a line clicked.
+	/// The line only disappears once it has been removed from the code.
+	/// </summary>
+	public event Action<UMLRelationship> RelationshipRemoved;
+
 	/// <summary>Ids of the View menu's items, as set in the scene.</summary>
 	private enum ViewMenuItem
 	{
@@ -31,10 +37,35 @@ public partial class VisualEditor : Control
 		FrameDiagram,
 	}
 
+	/// <summary>What a left click on the canvas does.</summary>
+	private enum CanvasMode
+	{
+		/// <summary>Picks a node up to drag it.</summary>
+		Normal,
+
+		/// <summary>Picks the ends of a new relationship.</summary>
+		Connecting,
+
+		/// <summary>Picks a relationship's line to delete it.</summary>
+		DeletingConnection,
+	}
+
+	/// <summary>
+	/// Id of the Connect menu's Delete Connection item, clear of the ids of the
+	/// relationship types listed above it.
+	/// </summary>
+	private const int DeleteConnectionId = 100;
+
 	private const float EndingLength = 16.0f;
 	private const float EndingHalfWidth = 7.0f;
 	private const float LabelMargin = 4.0f;
 	private const float FrameMargin = 32.0f;
+
+	/// <summary>
+	/// How close, in screen pixels at any zoom, a click must land to a line to
+	/// pick it.
+	/// </summary>
+	private const float LinePickDistance = 6.0f;
 
 	/// <summary>
 	/// How far each new node is nudged from the previous one when several are
@@ -58,6 +89,10 @@ public partial class VisualEditor : Control
 	[Export]
 	private Color BackgroundColor = new(0.180392f, 0.180392f, 0.180392f);
 
+	/// <summary>The color of the line a click would delete.</summary>
+	[Export]
+	private Color DeleteHighlightColor = new(0.937255f, 0.32549f, 0.313726f);
+
 	private Control anchor;
 	private ColorRect grayOut;
 	private Control menuPanel;
@@ -66,20 +101,27 @@ public partial class VisualEditor : Control
 	private PopupMenu connectMenu;
 	private Label hintLabel;
 
+	private CanvasMode mode = CanvasMode.Normal;
+
 	/// <summary>
-	/// The relationship the Connect menu is waiting to have clicked out, or
-	/// <c>null</c> when it is not.
+	/// The relationship the Connect menu is waiting to have clicked out, while
+	/// <see cref="mode"/> is <see cref="CanvasMode.Connecting"/>.
 	/// </summary>
-	private UMLRelationshipType? connectionType = null;
+	private UMLRelationshipType connectionType;
 
 	/// <summary>The first node clicked for the pending relationship.</summary>
 	private UMLNodeContainer connectionSource = null;
 
 	/// <summary>
-	/// Where the pending relationship's preview ends: the last mouse position
-	/// seen, in the editor's own coordinates.
+	/// The relationship a click would delete right now, drawn highlighted.
 	/// </summary>
-	private Vector2 connectionEnd;
+	private UMLRelationship hoveredRelationship = null;
+
+	/// <summary>
+	/// The last mouse position seen while picking, in the editor's own
+	/// coordinates. The pending relationship's preview ends here.
+	/// </summary>
+	private Vector2 pointerPosition;
 
 	private UMLDiagram diagram = null;
 	private UMLNodeContainer draggedNodeContainer = null;
@@ -121,6 +163,9 @@ public partial class VisualEditor : Control
 		{
 			connectMenu.AddItem(GetDisplayName(type), (int)type);
 		}
+
+		connectMenu.AddSeparator();
+		connectMenu.AddItem("Delete Connection", DeleteConnectionId);
 
 		addMenu.IdPressed += OnAddMenuIdPressed;
 		connectMenu.IdPressed += OnConnectMenuIdPressed;
@@ -190,34 +235,60 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		if (id == DeleteConnectionId)
+		{
+			StartMode(CanvasMode.DeletingConnection);
+			return;
+		}
+
 		connectionType = (UMLRelationshipType)id;
+		StartMode(CanvasMode.Connecting);
+	}
+
+	/// <summary>
+	/// Switches to one of the click-to-pick modes, in which clicks pick nodes or
+	/// lines instead of dragging nodes around.
+	/// </summary>
+	private void StartMode(CanvasMode newMode)
+	{
+		mode = newMode;
 		connectionSource = null;
+		hoveredRelationship = null;
 		ToggleNodes(false);
 		MouseDefaultCursorShape = CursorShape.Cross;
-		UpdateConnectionHint();
+		UpdateHint();
 		QueueRedraw();
 	}
 
-	private void UpdateConnectionHint()
+	private void UpdateHint()
 	{
-		string source = connectionSource == null ? string.Empty : $"{connectionSource.UmlNode.Name} → ";
-		hintLabel.Text = $"{GetDisplayName(connectionType.Value)}: {source}click a node (Esc cancels)";
+		if (mode == CanvasMode.DeletingConnection)
+		{
+			hintLabel.Text = "Delete: click a line (Esc cancels)";
+		}
+		else
+		{
+			string source = connectionSource == null ? string.Empty : $"{connectionSource.UmlNode.Name} → ";
+			hintLabel.Text = $"{GetDisplayName(connectionType)}: {source}click a node (Esc cancels)";
+		}
+
 		hintLabel.Show();
 	}
 
 	/// <summary>
-	/// Leaves the Connect menu's click-to-pick mode, if it is on, and gives the
-	/// nodes their dragging back.
+	/// Leaves the click-to-pick mode, if one is on, and gives the nodes their
+	/// dragging back.
 	/// </summary>
-	private void EndConnection()
+	private void EndMode()
 	{
-		if (connectionType == null)
+		if (mode == CanvasMode.Normal)
 		{
 			return;
 		}
 
-		connectionType = null;
+		mode = CanvasMode.Normal;
 		connectionSource = null;
+		hoveredRelationship = null;
 		ToggleNodes(!grayOut.Visible);
 		MouseDefaultCursorShape = CursorShape.Arrow;
 		hintLabel.Hide();
@@ -225,22 +296,33 @@ public partial class VisualEditor : Control
 	}
 
 	/// <summary>
-	/// Takes the clicks that pick the two ends of a pending relationship: a
-	/// left click on a node picks it, a right click or Cancel gives up. Returns
-	/// whether the event was used up.
+	/// Takes the input of the click-to-pick modes: a left click picks a node or
+	/// a line, a right click or Cancel gives up. Returns whether the event was
+	/// used up.
 	/// </summary>
-	private bool HandleConnectionInput(InputEvent @event)
+	private bool HandleModeInput(InputEvent @event)
 	{
 		if (@event.IsActionPressed("Cancel"))
 		{
-			EndConnection();
+			EndMode();
 			return true;
 		}
 
 		if (@event is InputEventMouseMotion motionEvent)
 		{
-			connectionEnd = ToLocal(motionEvent.Position);
-			if (connectionSource != null)
+			pointerPosition = ToLocal(motionEvent.Position);
+			if (mode == CanvasMode.DeletingConnection)
+			{
+				UMLRelationship hovered = GetCanvasRect().HasPoint(pointerPosition)
+					? GetRelationshipAt(pointerPosition)
+					: null;
+				if (hovered != hoveredRelationship)
+				{
+					hoveredRelationship = hovered;
+					QueueRedraw();
+				}
+			}
+			else if (connectionSource != null)
 			{
 				QueueRedraw();
 			}
@@ -253,15 +335,15 @@ public partial class VisualEditor : Control
 			return false;
 		}
 
-		connectionEnd = ToLocal(mouseEvent.Position);
-		if (!GetCanvasRect().HasPoint(connectionEnd))
+		pointerPosition = ToLocal(mouseEvent.Position);
+		if (!GetCanvasRect().HasPoint(pointerPosition))
 		{
 			return false;
 		}
 
 		if (mouseEvent.ButtonIndex == MouseButton.Right)
 		{
-			EndConnection();
+			EndMode();
 			return true;
 		}
 
@@ -270,28 +352,97 @@ public partial class VisualEditor : Control
 			return false;
 		}
 
-		UMLNodeContainer clicked = GetContainerAt(mouseEvent.Position);
+		if (mode == CanvasMode.DeletingConnection)
+		{
+			PickRelationshipToDelete();
+		}
+		else
+		{
+			PickConnectionEnd(GetContainerAt(mouseEvent.Position));
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// Takes a click on <paramref name="clicked"/> as the next end of the
+	/// pending relationship. Clicks on empty canvas, or on the first node again,
+	/// are ignored.
+	/// </summary>
+	private void PickConnectionEnd(UMLNodeContainer clicked)
+	{
 		if (clicked == null || clicked == connectionSource)
 		{
-			return true;
+			return;
 		}
 
 		if (connectionSource == null)
 		{
 			connectionSource = clicked;
-			UpdateConnectionHint();
+			UpdateHint();
 			QueueRedraw();
-			return true;
+			return;
 		}
 
 		// The mode ends before the relationship is announced, since writing it
 		// re-parses the code and rebuilds every container.
-		UMLRelationshipType type = connectionType.Value;
+		UMLRelationshipType type = connectionType;
 		UMLNode from = connectionSource.UmlNode;
 		UMLNode to = clicked.UmlNode;
-		EndConnection();
+		EndMode();
 		RelationshipAdded?.Invoke(from, to, type, GetDirection(type));
-		return true;
+	}
+
+	/// <summary>
+	/// Deletes the line under the click, if there is one. The hover highlight is
+	/// not trusted for this, since a click can arrive without a move before it.
+	/// </summary>
+	private void PickRelationshipToDelete()
+	{
+		UMLRelationship relationship = GetRelationshipAt(pointerPosition);
+		if (relationship == null)
+		{
+			return;
+		}
+
+		// As with connecting, the mode ends first: removing the line re-parses
+		// the code.
+		EndMode();
+		RelationshipRemoved?.Invoke(relationship);
+	}
+
+	/// <summary>
+	/// The relationship whose line passes closest to
+	/// <paramref name="localPosition"/>, if any passes within
+	/// <see cref="LinePickDistance"/> of it.
+	/// </summary>
+	private UMLRelationship GetRelationshipAt(Vector2 localPosition)
+	{
+		if (diagram == null)
+		{
+			return null;
+		}
+
+		Vector2 point = (localPosition - anchor.Position) / anchor.Scale;
+		float closestDistance = LinePickDistance / anchor.Scale.X;
+		UMLRelationship closest = null;
+
+		foreach (UMLRelationship relationship in diagram.Relationships)
+		{
+			if (!TryGetRelationshipEdges(relationship, out Vector2 fromEdge, out Vector2 toEdge))
+			{
+				continue;
+			}
+
+			float distance = UMLGeometry.DistanceToSegment(point, fromEdge, toEdge);
+			if (distance <= closestDistance)
+			{
+				closestDistance = distance;
+				closest = relationship;
+			}
+		}
+
+		return closest;
 	}
 
 	/// <summary>
@@ -341,7 +492,7 @@ public partial class VisualEditor : Control
 	private void DrawConnectionPreview(UMLRelationshipType type, UMLNodeContainer source)
 	{
 		Rect2 sourceRect = new(source.Position, GetSize(source));
-		Vector2 mouse = (connectionEnd - anchor.Position) / anchor.Scale;
+		Vector2 mouse = (pointerPosition - anchor.Position) / anchor.Scale;
 		if (sourceRect.HasPoint(mouse))
 		{
 			return;
@@ -369,7 +520,7 @@ public partial class VisualEditor : Control
 
 		if (decorated)
 		{
-			DrawEnding(type.GetEnding(), mouse, -direction);
+			DrawEnding(type.GetEnding(), mouse, -direction, Colors.White);
 		}
 	}
 
@@ -474,16 +625,29 @@ public partial class VisualEditor : Control
 			Debug.Assert(relationship.From != null);
 			Debug.Assert(relationship.To != null);
 
-			DrawRelationship(relationship);
+			DrawRelationship(
+				relationship,
+				relationship == hoveredRelationship ? DeleteHighlightColor : Colors.White
+			);
 		}
 
-		if (connectionType != null && connectionSource != null)
+		if (mode == CanvasMode.Connecting && connectionSource != null)
 		{
-			DrawConnectionPreview(connectionType.Value, connectionSource);
+			DrawConnectionPreview(connectionType, connectionSource);
 		}
 	}
 
-	private void DrawRelationship(UMLRelationship relationship)
+	/// <summary>
+	/// Where a relationship's line meets the edges of its two nodes, in diagram
+	/// coordinates. Drawing and picking both go through here so a click lands
+	/// on exactly the line that is shown. False when the nodes overlap so much
+	/// that no line is drawn.
+	/// </summary>
+	private bool TryGetRelationshipEdges(
+		UMLRelationship relationship,
+		out Vector2 fromEdge,
+		out Vector2 toEdge
+	)
 	{
 		UMLNodeContainer fromContainer = containers[relationship.From];
 		UMLNodeContainer toContainer = containers[relationship.To];
@@ -493,16 +657,20 @@ public partial class VisualEditor : Control
 		Vector2 fromCenter = fromRect.GetCenter();
 		Vector2 toCenter = toRect.GetCenter();
 
-		Vector2 fromEdge = ClipToRect(fromRect, fromCenter, toCenter);
-		Vector2 toEdge = ClipToRect(toRect, toCenter, fromCenter);
+		fromEdge = ClipToRect(fromRect, fromCenter, toCenter);
+		toEdge = ClipToRect(toRect, toCenter, fromCenter);
 
-		Vector2 delta = toEdge - fromEdge;
-		if (delta.LengthSquared() < 0.0001f)
+		return (toEdge - fromEdge).LengthSquared() >= 0.0001f;
+	}
+
+	private void DrawRelationship(UMLRelationship relationship, Color color)
+	{
+		if (!TryGetRelationshipEdges(relationship, out Vector2 fromEdge, out Vector2 toEdge))
 		{
 			return;
 		}
 
-		Vector2 direction = delta.Normalized();
+		Vector2 direction = (toEdge - fromEdge).Normalized();
 
 		float fromEndingLength = GetEndingLength(relationship.FromEnding);
 		float toEndingLength = GetEndingLength(relationship.ToEnding);
@@ -512,28 +680,29 @@ public partial class VisualEditor : Control
 
 		if (relationship.IsDashed)
 		{
-			DrawDashedLine(lineStart, lineEnd, Colors.White, 2.0f, 6.0f);
+			DrawDashedLine(lineStart, lineEnd, color, 2.0f, 6.0f);
 		}
 		else
 		{
-			DrawLine(lineStart, lineEnd, Colors.White, 2.0f, true);
+			DrawLine(lineStart, lineEnd, color, 2.0f, true);
 		}
 
-		DrawEnding(relationship.FromEnding, fromEdge, direction);
-		DrawEnding(relationship.ToEnding, toEdge, -direction);
+		DrawEnding(relationship.FromEnding, fromEdge, direction, color);
+		DrawEnding(relationship.ToEnding, toEdge, -direction, color);
 
 		Vector2 perpendicular = new(-direction.Y, direction.X);
 
 		if (!string.IsNullOrEmpty(relationship.Label))
 		{
-			DrawText(relationship.Label, (fromEdge + toEdge) / 2.0f + perpendicular * LabelMargin);
+			DrawText(relationship.Label, (fromEdge + toEdge) / 2.0f + perpendicular * LabelMargin, color);
 		}
 
 		if (!string.IsNullOrEmpty(relationship.FromMultiplicity))
 		{
 			DrawText(
 				relationship.FromMultiplicity,
-				fromEdge + direction * (fromEndingLength + LabelMargin) + perpendicular * LabelMargin
+				fromEdge + direction * (fromEndingLength + LabelMargin) + perpendicular * LabelMargin,
+				color
 			);
 		}
 
@@ -541,16 +710,17 @@ public partial class VisualEditor : Control
 		{
 			DrawText(
 				relationship.ToMultiplicity,
-				toEdge - direction * (toEndingLength + LabelMargin) + perpendicular * LabelMargin
+				toEdge - direction * (toEndingLength + LabelMargin) + perpendicular * LabelMargin,
+				color
 			);
 		}
 	}
 
-	private void DrawText(string text, Vector2 position)
+	private void DrawText(string text, Vector2 position, Color color)
 	{
 		Font font = GetThemeDefaultFont();
 		int fontSize = GetThemeDefaultFontSize();
-		DrawString(font, position, text, HorizontalAlignment.Left, -1, fontSize, Colors.White);
+		DrawString(font, position, text, HorizontalAlignment.Left, -1, fontSize, color);
 	}
 
 	/// <summary>
@@ -558,7 +728,7 @@ public partial class VisualEditor : Control
 	/// the node at <paramref name="tip"/> and its body spreading out along
 	/// <paramref name="outward"/>, the direction away from that node.
 	/// </summary>
-	private void DrawEnding(UMLRelationshipEnding ending, Vector2 tip, Vector2 outward)
+	private void DrawEnding(UMLRelationshipEnding ending, Vector2 tip, Vector2 outward, Color color)
 	{
 		if (ending == UMLRelationshipEnding.None)
 		{
@@ -570,8 +740,8 @@ public partial class VisualEditor : Control
 		if (ending == UMLRelationshipEnding.OpenArrow)
 		{
 			Vector2 baseCenter = tip + outward * EndingLength;
-			DrawLine(tip, baseCenter + perpendicular * EndingHalfWidth, Colors.White, 2.0f, true);
-			DrawLine(tip, baseCenter - perpendicular * EndingHalfWidth, Colors.White, 2.0f, true);
+			DrawLine(tip, baseCenter + perpendicular * EndingHalfWidth, color, 2.0f, true);
+			DrawLine(tip, baseCenter - perpendicular * EndingHalfWidth, color, 2.0f, true);
 			return;
 		}
 
@@ -594,12 +764,12 @@ public partial class VisualEditor : Control
 
 		if (filled)
 		{
-			DrawColoredPolygon(points, Colors.White);
+			DrawColoredPolygon(points, color);
 		}
 		else
 		{
 			DrawColoredPolygon(points, BackgroundColor);
-			DrawPolyline([.. points, points[0]], Colors.White, 2.0f, true);
+			DrawPolyline([.. points, points[0]], color, 2.0f, true);
 		}
 	}
 
@@ -663,7 +833,7 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		if (connectionType != null && HandleConnectionInput(@event))
+		if (mode != CanvasMode.Normal && HandleModeInput(@event))
 		{
 			GetViewport().SetInputAsHandled();
 			return;
@@ -717,7 +887,7 @@ public partial class VisualEditor : Control
 			else
 			{
 				MouseDefaultCursorShape =
-					connectionType == null ? CursorShape.Arrow : CursorShape.Cross;
+					mode == CanvasMode.Normal ? CursorShape.Arrow : CursorShape.Cross;
 			}
 		}
 	}
@@ -726,7 +896,7 @@ public partial class VisualEditor : Control
 	{
 		bool isDiagramRendered = newDiagram != null;
 		grayOut.Visible = !isDiagramRendered;
-		EndConnection();
+		EndMode();
 		menuBar.SetMenuDisabled(addMenu.GetIndex(), !isDiagramRendered);
 		menuBar.SetMenuDisabled(connectMenu.GetIndex(), !isDiagramRendered);
 		ToggleNodes(isDiagramRendered);
@@ -737,6 +907,10 @@ public partial class VisualEditor : Control
 		}
 
 		diagram = newDiagram;
+		connectMenu.SetItemDisabled(
+			connectMenu.GetItemIndex(DeleteConnectionId),
+			newDiagram.Relationships.Count == 0
+		);
 
 		foreach (Node child in anchor.GetChildren())
 		{

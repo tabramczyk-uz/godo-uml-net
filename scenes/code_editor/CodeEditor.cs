@@ -66,6 +66,12 @@ public partial class CodeEditor : Control
 		SubmitCode();
 	}
 
+	public void RemoveRelationship(UMLRelationship relationship)
+	{
+		codeEdit.Text = UMLCodeWriter.RemoveRelationship(codeEdit.Text, relationship);
+		SubmitCode();
+	}
+
 	public void ShowError(string message, int lineNumber)
 	{
 		if (errorLine != -1)

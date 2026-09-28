@@ -15,6 +15,7 @@ public partial class Main : Control
 		visualEditor.NodePositionChanged += OnNodePositionChanged;
 		visualEditor.NodeAdded += OnNodeAdded;
 		visualEditor.RelationshipAdded += OnRelationshipAdded;
+		visualEditor.RelationshipRemoved += OnRelationshipRemoved;
 	}
 
 	private void OnCodeChanged(string code)
@@ -64,5 +65,10 @@ public partial class Main : Control
 	)
 	{
 		codeEditor.AddRelationship(from, to, type, direction);
+	}
+
+	private void OnRelationshipRemoved(UMLRelationship relationship)
+	{
+		codeEditor.RemoveRelationship(relationship);
 	}
 }
