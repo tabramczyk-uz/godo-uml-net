@@ -10,10 +10,16 @@ public partial class Main : Control
 		Open = 1,
 		Save = 2,
 		New = 3,
+		ExportToPlantUML = 5,
 	}
 
 	/// <summary>The action of the unsaved-changes dialog's Don't Save button.</summary>
 	private const string DiscardAction = "discard";
+
+	/// <summary>The action of the export dialog's Copy button.</summary>
+	private const string CopyAction = "copy";
+	private const string CopyText = "Copy";
+	private const string CopiedText = "Copied";
 
 	private CodeEditor codeEditor;
 	private VisualEditor visualEditor;
@@ -22,6 +28,9 @@ public partial class Main : Control
 	private FileDialog saveDialog;
 	private ConfirmationDialog unsavedDialog;
 	private AcceptDialog errorDialog;
+	private AcceptDialog exportDialog;
+	private TextEdit plantUmlText;
+	private Button copyButton;
 
 	private UMLDocument document;
 
@@ -70,6 +79,11 @@ public partial class Main : Control
 		errorDialog = GetNode<AcceptDialog>("%ErrorDialog");
 		// Breaks a long file name too, where plain word wrapping would cut it off.
 		errorDialog.GetLabel().AutowrapMode = TextServer.AutowrapMode.WordSmart;
+
+		exportDialog = GetNode<AcceptDialog>("%ExportDialog");
+		plantUmlText = GetNode<TextEdit>("%PlantUMLText");
+		copyButton = exportDialog.AddButton(CopyText, action: CopyAction);
+		exportDialog.CustomAction += OnExportDialogCustomAction;
 
 		codeEditor = GetNode<CodeEditor>("%CodeEditor");
 		codeEditor.CodeChanged += OnCodeChanged;
@@ -125,6 +139,42 @@ public partial class Main : Control
 				afterSaveAs = null;
 				saveDialog.PopupCentered();
 				break;
+			case FileMenuItem.ExportToPlantUML:
+				ExportToPlantUML();
+				break;
+		}
+	}
+
+	/// <summary>
+	/// Shows the diagram as PlantUML, read-only but selectable, ready to copy.
+	/// It is exported from the code as it stands, with only the positions the
+	/// code spells out, so a code error stops it rather than exporting an
+	/// older diagram.
+	/// </summary>
+	private void ExportToPlantUML()
+	{
+		UMLParseResult result = UMLParser.Parse(codeEditor.Code);
+		if (!result.IsSuccess)
+		{
+			ShowErrorDialog(
+				"Cannot Export",
+				$"The code has an error on line {result.ErrorLineNumber + 1}: {result.ErrorMessage}\n"
+					+ "Fix it, then export again."
+			);
+			return;
+		}
+
+		plantUmlText.Text = PlantUMLExporter.Export(result.Diagram);
+		copyButton.Text = CopyText;
+		exportDialog.PopupCentered();
+	}
+
+	private void OnExportDialogCustomAction(StringName action)
+	{
+		if (action == CopyAction)
+		{
+			DisplayServer.ClipboardSet(plantUmlText.Text);
+			copyButton.Text = CopiedText;
 		}
 	}
 
