@@ -21,6 +21,9 @@ public partial class CodeEditor : Control
 
 	private int errorLine = -1;
 
+	/// <summary>The source code as it stands in the editor.</summary>
+	public string Code => codeEdit.Text;
+
 	public override void _Ready()
 	{
 		codeEdit = GetNode<TextEdit>("%CodeEdit");

@@ -35,9 +35,10 @@ grow_vertical = 2
 layout_mode = 2
 flat = true
 
-[node name="PopupMenu" type="PopupMenu" parent="VBoxContainer/MenuBar" unique_id=1650189312]
+[node name="File" type="PopupMenu" parent="VBoxContainer/MenuBar" unique_id=1650189312]
+unique_name_in_owner = true
 item_count = 1
-item_0/text = "yes"
+item_0/text = "Save..."
 item_0/id = 0
 
 [node name="HSplitContainer" type="HSplitContainer" parent="VBoxContainer" unique_id=1854219227]
@@ -51,3 +52,11 @@ layout_mode = 2
 [node name="VisualEditor" parent="VBoxContainer/HSplitContainer" unique_id=505607726 instance=ExtResource("2")]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="SaveDialog" type="FileDialog" parent="." unique_id=1483920574]
+unique_name_in_owner = true
+title = "Save Diagram"
+size = Vector2i(720, 480)
+ok_button_text = "Save"
+access = 2
+use_native_dialog = true
