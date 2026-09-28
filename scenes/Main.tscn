@@ -37,11 +37,13 @@ flat = true
 
 [node name="File" type="PopupMenu" parent="VBoxContainer/MenuBar" unique_id=1650189312]
 unique_name_in_owner = true
-item_count = 2
+item_count = 3
 item_0/text = "Open..."
 item_0/id = 1
-item_1/text = "Save..."
-item_1/id = 0
+item_1/text = "Save"
+item_1/id = 2
+item_2/text = "Save As..."
+item_2/id = 0
 
 [node name="HSplitContainer" type="HSplitContainer" parent="VBoxContainer" unique_id=1854219227]
 layout_mode = 2
@@ -72,3 +74,8 @@ size = Vector2i(720, 480)
 ok_button_text = "Save"
 access = 2
 use_native_dialog = true
+
+[node name="UnsavedDialog" type="ConfirmationDialog" parent="." unique_id=2064718395]
+unique_name_in_owner = true
+title = "Unsaved Changes"
+ok_button_text = "Save"
