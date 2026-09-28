@@ -115,6 +115,8 @@ public partial class Main : Control
 		visualEditor.RelationshipAdded += OnRelationshipAdded;
 		visualEditor.RelationshipRemoved += OnRelationshipRemoved;
 		visualEditor.NodesRemoved += OnNodesRemoved;
+		visualEditor.UndoRequested += codeEditor.Undo;
+		visualEditor.RedoRequested += codeEditor.Redo;
 
 		document = new UMLDocument(codeEditor.Code);
 		UpdateTitle();

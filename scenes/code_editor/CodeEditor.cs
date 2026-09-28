@@ -53,6 +53,24 @@ public partial class CodeEditor : Control
 		SubmitCode();
 	}
 
+	/// <summary>
+	/// Steps back through the editor's history, which holds the canvas edits
+	/// too, since each of those is an edit of the code. Parses straight away
+	/// rather than after the typing delay.
+	/// </summary>
+	public void Undo()
+	{
+		codeEdit.Undo();
+		SubmitCode();
+	}
+
+	/// <inheritdoc cref="Undo"/>
+	public void Redo()
+	{
+		codeEdit.Redo();
+		SubmitCode();
+	}
+
 	public void ChangeNodeName(UMLNode node, string newName)
 	{
 		codeEdit.Text = UMLCodeWriter.RenameNode(codeEdit.Text, node, newName);

@@ -39,6 +39,15 @@ public partial class VisualEditor : Control
 	public event Action<IReadOnlyList<UMLNode>> NodesRemoved;
 
 	/// <summary>
+	/// Raised for Undo and Redo pressed on the canvas. Every canvas edit is an
+	/// edit of the code, so they step through the code editor's history.
+	/// </summary>
+	public event Action UndoRequested;
+
+	/// <inheritdoc cref="UndoRequested"/>
+	public event Action RedoRequested;
+
+	/// <summary>
 	/// Ids of the node menu's own items. The Connect from Here submenu uses the
 	/// relationship types' values instead, as the Connect menu does.
 	/// </summary>
@@ -938,6 +947,12 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		if (HasFocus() && HandleHistoryInput(@event))
+		{
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+
 		if (mode != CanvasMode.Normal && HandleModeInput(@event))
 		{
 			GetViewport().SetInputAsHandled();
@@ -1022,6 +1037,13 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		if (@event.IsActionPressed("ui_text_select_all", false, true) && HasFocus())
+		{
+			SelectAll();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+
 		if (@event.IsActionPressed("Cancel"))
 		{
 			ClearSelection();
@@ -1080,6 +1102,38 @@ public partial class VisualEditor : Control
 		{
 			ClearSelection();
 		}
+	}
+
+	/// <summary>
+	/// Handles Undo and Redo, with the same keys as the code editor's. Matching
+	/// is exact, so Ctrl+Shift+Z counts as Redo rather than also as Undo.
+	/// Returns whether the event was one of them.
+	/// </summary>
+	private bool HandleHistoryInput(InputEvent @event)
+	{
+		if (@event.IsActionPressed("ui_redo", false, true))
+		{
+			RedoRequested?.Invoke();
+			return true;
+		}
+
+		if (@event.IsActionPressed("ui_undo", false, true))
+		{
+			UndoRequested?.Invoke();
+			return true;
+		}
+
+		return false;
+	}
+
+	private void SelectAll()
+	{
+		foreach (UMLNode node in containers.Keys)
+		{
+			selectedNames.Add(node.Name);
+		}
+
+		QueueRedraw();
 	}
 
 	private void DeleteSelection()
