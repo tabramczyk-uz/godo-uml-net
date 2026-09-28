@@ -25,6 +25,7 @@ clip_contents = true
 offset_right = 100.0
 offset_bottom = 100.0
 size_flags_horizontal = 3
+focus_mode = 1
 script = ExtResource("1_7vwpt")
 
 [node name="Anchor" type="Control" parent="." unique_id=1676205686]

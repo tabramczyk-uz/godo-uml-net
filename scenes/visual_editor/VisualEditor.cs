@@ -1007,11 +1007,21 @@ public partial class VisualEditor : Control
 	/// with Shift, and leaves an existing selection alone when the node is
 	/// already part of it, so the whole selection can be dragged. A drag across
 	/// empty canvas draws a box that selects every node it touches. A click on
-	/// empty canvas, or Cancel, clears the selection. No event is marked as
-	/// handled, so the nodes still get their drags and double-clicks.
+	/// empty canvas, or Cancel, clears the selection, and Delete deletes it.
+	/// Clicks are not marked as handled, so the nodes still get their drags and
+	/// double-clicks.
 	/// </summary>
 	private void HandleSelectionInput(InputEvent @event)
 	{
+		// Only while the canvas has focus, so Delete still edits text in the
+		// code editor and in the rename box.
+		if (@event.IsActionPressed("Delete") && HasFocus())
+		{
+			DeleteSelection();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+
 		if (@event.IsActionPressed("Cancel"))
 		{
 			ClearSelection();
@@ -1055,6 +1065,8 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		GrabFocus();
+
 		UMLNodeContainer clicked = GetContainerAt(mouseEvent.Position);
 		if (clicked != null)
 		{
@@ -1067,6 +1079,23 @@ public partial class VisualEditor : Control
 		if (!boxAddsToSelection)
 		{
 			ClearSelection();
+		}
+	}
+
+	private void DeleteSelection()
+	{
+		List<UMLNode> nodes = [];
+		foreach (UMLNode node in containers.Keys)
+		{
+			if (selectedNames.Contains(node.Name))
+			{
+				nodes.Add(node);
+			}
+		}
+
+		if (nodes.Count > 0)
+		{
+			NodesRemoved?.Invoke(nodes);
 		}
 	}
 
@@ -1084,6 +1113,8 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		GrabFocus();
+
 		UMLNodeContainer clicked = GetContainerAt(eventPosition);
 		if (clicked == null)
 		{
@@ -1099,11 +1130,11 @@ public partial class VisualEditor : Control
 			nodeMenu.AddItem("Rename...", (int)NodeMenuItem.Rename);
 			nodeMenu.AddSubmenuNodeItem("Connect from Here", connectFromHereMenu);
 			nodeMenu.AddSeparator();
-			nodeMenu.AddItem("Delete", (int)NodeMenuItem.Delete);
+			nodeMenu.AddItem("Delete Node", (int)NodeMenuItem.Delete, Key.Delete);
 		}
 		else
 		{
-			nodeMenu.AddItem($"Delete {menuTargets.Count} Nodes", (int)NodeMenuItem.Delete);
+			nodeMenu.AddItem($"Delete {menuTargets.Count} Nodes", (int)NodeMenuItem.Delete, Key.Delete);
 		}
 
 		nodeMenu.Popup(new Rect2I((Vector2I)eventPosition, Vector2I.Zero));
