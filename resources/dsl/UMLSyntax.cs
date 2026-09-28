@@ -143,6 +143,42 @@ public static partial class UMLSyntax
 		return name != null && IdentifierRegex().IsMatch(name);
 	}
 
+	/// <summary>
+	/// Says what is wrong with <paramref name="name"/> as a node name, pointing
+	/// at the first character the identifier rule rejects, or <c>null</c> when
+	/// there is nothing wrong with it.
+	/// </summary>
+	public static string DescribeInvalidNodeName(string name)
+	{
+		if (IsValidNodeName(name))
+		{
+			return null;
+		}
+
+		if (string.IsNullOrEmpty(name))
+		{
+			return "A node name cannot be empty.";
+		}
+
+		if (char.IsAsciiDigit(name[0]))
+		{
+			return $"\"{name}\" starts with a digit. Node names must start with a letter or an underscore.";
+		}
+
+		char rejected = name[0];
+		foreach (char character in name)
+		{
+			if (!char.IsAsciiLetterOrDigit(character) && character != '_')
+			{
+				rejected = character;
+				break;
+			}
+		}
+
+		string what = rejected == ' ' ? "a space" : $"\"{rejected}\"";
+		return $"\"{name}\" contains {what}. Node names can only use the letters A-Z, digits and underscores.";
+	}
+
 	public static UMLNodeType GetNodeType(UMLNode node)
 	{
 		return node.Type;

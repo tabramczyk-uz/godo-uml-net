@@ -85,3 +85,5 @@ ok_button_text = "Save"
 [node name="ErrorDialog" type="AcceptDialog" parent="." unique_id=1395027468]
 unique_name_in_owner = true
 title = "Error"
+size = Vector2i(480, 100)
+dialog_autowrap = true

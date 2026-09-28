@@ -26,6 +26,12 @@ public partial class Main : Control
 	private UMLDocument document;
 
 	/// <summary>
+	/// The last diagram the code parsed into, which is the one on the canvas:
+	/// a failed parse leaves it in place, grayed out.
+	/// </summary>
+	private UMLDiagram diagram = new();
+
+	/// <summary>
 	/// What to do once the unsaved changes are saved or discarded, while the
 	/// unsaved-changes dialog is open.
 	/// </summary>
@@ -62,6 +68,8 @@ public partial class Main : Control
 		unsavedDialog.Canceled += () => pendingAction = null;
 
 		errorDialog = GetNode<AcceptDialog>("%ErrorDialog");
+		// Breaks a long file name too, where plain word wrapping would cut it off.
+		errorDialog.GetLabel().AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
 		codeEditor = GetNode<CodeEditor>("%CodeEditor");
 		codeEditor.CodeChanged += OnCodeChanged;
@@ -282,12 +290,19 @@ public partial class Main : Control
 	{
 		GD.PrintErr($"Could not {verb.ToLowerInvariant()} {path}: {error}");
 
-		errorDialog.Title = $"Could Not {verb}";
-		errorDialog.DialogText =
-			$"Could not {verb.ToLowerInvariant()} {path}.\n{UMLFileFormat.DescribeError(error)}";
+		ShowErrorDialog(
+			$"Could Not {verb}",
+			$"Could not {verb.ToLowerInvariant()} {path}.\n{UMLFileFormat.DescribeError(error)}"
+		);
+	}
 
-		// Deferred, because the file dialog that reported the file may still be
-		// open, and only one dialog can hold the window at a time.
+	private void ShowErrorDialog(string title, string message)
+	{
+		errorDialog.Title = title;
+		errorDialog.DialogText = message;
+
+		// Deferred, because whatever reported the error, such as a file dialog,
+		// may still be open, and only one dialog can hold the window at a time.
 		errorDialog.CallDeferred(Window.MethodName.PopupCentered, Vector2I.Zero);
 	}
 
@@ -300,6 +315,7 @@ public partial class Main : Control
 		{
 			codeEditor.DismissError();
 			UMLAutoLayout.ApplyToUnpositioned(result.Diagram);
+			diagram = result.Diagram;
 		}
 		else
 		{
@@ -311,14 +327,14 @@ public partial class Main : Control
 
 	private void OnNodeNameChanged(UMLNode node, string newName)
 	{
-		if (UMLSyntax.IsValidNodeName(newName))
+		string problem = diagram.DescribeRenameProblem(node, newName);
+		if (problem == null)
 		{
 			codeEditor.ChangeNodeName(node, newName);
 		}
 		else
 		{
-			// TODO: Show error message to user
-			GD.PrintErr($"Invalid node name: {newName}");
+			ShowErrorDialog("Invalid Name", $"{node.Name} was not renamed.\n{problem}");
 		}
 	}
 

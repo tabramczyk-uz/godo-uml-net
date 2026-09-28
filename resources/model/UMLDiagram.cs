@@ -34,4 +34,24 @@ public class UMLDiagram
 			}
 		}
 	}
+
+	/// <summary>
+	/// What stands in the way of renaming <paramref name="node"/> to
+	/// <paramref name="newName"/>: a name the language does not allow, or one
+	/// another node already has. <c>null</c> when nothing does, which includes
+	/// keeping the current name. Names are case-sensitive, as in the parser.
+	/// </summary>
+	public string DescribeRenameProblem(UMLNode node, string newName)
+	{
+		string invalid = UMLSyntax.DescribeInvalidNodeName(newName);
+		if (invalid != null)
+		{
+			return invalid;
+		}
+
+		UMLNode other = FindNode(newName);
+		return other != null && other != node
+			? $"There is already a node named \"{newName}\"."
+			: null;
+	}
 }
