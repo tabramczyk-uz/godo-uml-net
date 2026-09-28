@@ -11,6 +11,14 @@ bg_color = Color(0.141176, 0.141176, 0.141176, 1)
 border_width_bottom = 2
 border_color = Color(0.623529, 0.623529, 0.623529, 1)
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_selbox"]
+bg_color = Color(0.352941, 0.6, 1, 0.14902)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.352941, 0.6, 1, 0.8)
+
 [node name="VisualEditor" type="Panel" unique_id=525565316]
 custom_minimum_size = Vector2(100, 100)
 clip_contents = true
@@ -23,6 +31,13 @@ script = ExtResource("1_7vwpt")
 unique_name_in_owner = true
 anchors_preset = 0
 mouse_filter = 2
+
+[node name="SelectionBox" type="Panel" parent="." unique_id=1520736849]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_selbox")
 
 [node name="GrayOut" type="ColorRect" parent="." unique_id=921989256]
 unique_name_in_owner = true

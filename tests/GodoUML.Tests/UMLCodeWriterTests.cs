@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using Xunit;
 
@@ -79,6 +80,40 @@ public class UMLCodeWriterTests
 		string moved = UMLCodeWriter.SetNodePosition(code, diagram.Nodes[0], new Vector2(7, 8));
 
 		Assert.Equal("class Foo\n\tposition: [7, 8] // placed by hand", moved);
+	}
+
+	[Fact]
+	public void MovesSeveralNodesInOneRewrite()
+	{
+		string code = "class A // first\nclass B\n\tposition: [1, 2]\nclass C\n\tposition: [3, 4]\nA --> B";
+		UMLDiagram diagram = Parse(code);
+
+		// A has no position line yet, so writing it pushes B's lines down.
+		string moved = UMLCodeWriter.SetNodePositions(
+			code,
+			new Dictionary<UMLNode, Vector2>
+			{
+				[diagram.FindNode("A")] = new(10, 20),
+				[diagram.FindNode("B")] = new(30, 40),
+			}
+		);
+
+		Assert.Equal(
+			"class A // first\n\tposition: [10, 20]\nclass B\n\tposition: [30, 40]\nclass C\n\tposition: [3, 4]\nA --> B",
+			moved
+		);
+		UMLDiagram reparsed = Parse(moved);
+		Assert.Equal(new Vector2(10, 20), reparsed.FindNode("A").Position);
+		Assert.Equal(new Vector2(30, 40), reparsed.FindNode("B").Position);
+		Assert.Equal(new Vector2(3, 4), reparsed.FindNode("C").Position);
+	}
+
+	[Fact]
+	public void MovingNoNodesLeavesTheCodeAlone()
+	{
+		string code = "class A\n\tposition: [1, 2]";
+
+		Assert.Equal(code, UMLCodeWriter.SetNodePositions(code, new Dictionary<UMLNode, Vector2>()));
 	}
 
 	[Fact]

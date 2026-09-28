@@ -8,7 +8,11 @@ public partial class VisualEditor : Control
 {
 	public event Action<UMLNode, string> NodeNameChanged;
 
-	public event Action<UMLNode, Vector2> NodePositionChanged;
+	/// <summary>
+	/// Raised when a drag ends, with where each node it moved now sits: the
+	/// dragged node alone, or the whole selection when it was one of them.
+	/// </summary>
+	public event Action<IReadOnlyDictionary<UMLNode, Vector2>> NodesMoved;
 
 	/// <summary>
 	/// Raised when the Add menu asks for a new node of the given type, name and
@@ -93,6 +97,19 @@ public partial class VisualEditor : Control
 	[Export]
 	private Color DeleteHighlightColor = new(0.937255f, 0.32549f, 0.313726f);
 
+	/// <summary>The color of the frame around selected nodes.</summary>
+	[Export]
+	private Color SelectionColor = new(0.352941f, 0.6f, 1.0f);
+
+	/// <summary>How far the selection frame stands off a node's edge.</summary>
+	private const float SelectionMargin = 4.0f;
+
+	/// <summary>
+	/// How far, in screen pixels, the mouse must move before a press on empty
+	/// canvas counts as drawing a box rather than a click.
+	/// </summary>
+	private const float BoxDragThreshold = 4.0f;
+
 	private Control anchor;
 	private ColorRect grayOut;
 	private Control menuPanel;
@@ -100,8 +117,27 @@ public partial class VisualEditor : Control
 	private PopupMenu addMenu;
 	private PopupMenu connectMenu;
 	private Label hintLabel;
+	private Control selectionBox;
 
 	private CanvasMode mode = CanvasMode.Normal;
+
+	/// <summary>
+	/// The selected nodes, by name, so a selection outlives the re-parse after
+	/// every edit, which rebuilds all the containers.
+	/// </summary>
+	private readonly HashSet<string> selectedNames = [];
+
+	/// <summary>
+	/// Where the box being drawn was started, in the editor's own coordinates,
+	/// or <c>null</c> when no box is being drawn.
+	/// </summary>
+	private Vector2? boxStart = null;
+
+	/// <summary>Whether the box being drawn adds to the selection (Shift).</summary>
+	private bool boxAddsToSelection = false;
+
+	/// <summary>The containers moving together in the drag under way.</summary>
+	private List<UMLNodeContainer> dragGroup = [];
 
 	/// <summary>
 	/// The relationship the Connect menu is waiting to have clicked out, while
@@ -153,6 +189,7 @@ public partial class VisualEditor : Control
 		addMenu = GetNode<PopupMenu>("%Add");
 		connectMenu = GetNode<PopupMenu>("%Connect");
 		hintLabel = GetNode<Label>("%HintLabel");
+		selectionBox = GetNode<Control>("%SelectionBox");
 
 		foreach (UMLNodeType type in Enum.GetValues<UMLNodeType>())
 		{
@@ -632,6 +669,17 @@ public partial class VisualEditor : Control
 
 		DrawSetTransform(anchor.Position, 0.0f, anchor.Scale);
 
+		// Drawn under the nodes, standing off their edges, so it frames them
+		// whatever their shape.
+		foreach ((UMLNode node, UMLNodeContainer container) in containers)
+		{
+			if (selectedNames.Contains(node.Name))
+			{
+				Rect2 frame = new Rect2(container.Position, GetSize(container)).Grow(SelectionMargin);
+				DrawRect(frame, SelectionColor, false, 2.0f);
+			}
+		}
+
 		foreach (UMLRelationship relationship in diagram.Relationships)
 		{
 			Debug.Assert(relationship.From != null);
@@ -863,6 +911,11 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		if (mode == CanvasMode.Normal && !grayOut.Visible)
+		{
+			HandleSelectionInput(@event);
+		}
+
 		if (@event is InputEventMouseButton)
 		{
 			if (Input.IsActionPressed("ZoomMode"))
@@ -916,6 +969,139 @@ public partial class VisualEditor : Control
 		}
 	}
 
+	/// <summary>
+	/// Picks nodes. A click on a node selects it, or adds it to the selection
+	/// with Shift, and leaves an existing selection alone when the node is
+	/// already part of it, so the whole selection can be dragged. A drag across
+	/// empty canvas draws a box that selects every node it touches. A click on
+	/// empty canvas, or Cancel, clears the selection. No event is marked as
+	/// handled, so the nodes still get their drags and double-clicks.
+	/// </summary>
+	private void HandleSelectionInput(InputEvent @event)
+	{
+		if (@event.IsActionPressed("Cancel"))
+		{
+			ClearSelection();
+			return;
+		}
+
+		if (@event is InputEventMouseMotion motionEvent)
+		{
+			if (boxStart != null)
+			{
+				UpdateSelectionBox(ToLocal(motionEvent.Position));
+			}
+
+			return;
+		}
+
+		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left } mouseEvent)
+		{
+			return;
+		}
+
+		if (!mouseEvent.Pressed)
+		{
+			if (boxStart != null)
+			{
+				FinishSelectionBox(ToLocal(mouseEvent.Position));
+			}
+
+			return;
+		}
+
+		Vector2 localPosition = ToLocal(mouseEvent.Position);
+		if (!GetCanvasRect().HasPoint(localPosition))
+		{
+			return;
+		}
+
+		UMLNodeContainer clicked = GetContainerAt(mouseEvent.Position);
+		if (clicked != null)
+		{
+			SelectOnPress(clicked.UmlNode.Name, mouseEvent.ShiftPressed);
+			return;
+		}
+
+		boxStart = localPosition;
+		boxAddsToSelection = mouseEvent.ShiftPressed;
+		if (!boxAddsToSelection)
+		{
+			ClearSelection();
+		}
+	}
+
+	private void SelectOnPress(string name, bool addToSelection)
+	{
+		if (!addToSelection && !selectedNames.Contains(name))
+		{
+			selectedNames.Clear();
+		}
+
+		selectedNames.Add(name);
+		QueueRedraw();
+	}
+
+	private void ClearSelection()
+	{
+		if (selectedNames.Count > 0)
+		{
+			selectedNames.Clear();
+			QueueRedraw();
+		}
+	}
+
+	private void UpdateSelectionBox(Vector2 pointer)
+	{
+		Rect2 box = GetBox(boxStart.Value, pointer);
+		if (!selectionBox.Visible && !IsBoxDrag(box))
+		{
+			return;
+		}
+
+		selectionBox.Position = box.Position;
+		selectionBox.Size = box.Size;
+		selectionBox.Show();
+	}
+
+	/// <summary>
+	/// Selects every node the finished box touches, on top of the existing
+	/// selection when the box was started with Shift. A box too small to count
+	/// was a click, which cleared the selection when it was pressed.
+	/// </summary>
+	private void FinishSelectionBox(Vector2 pointer)
+	{
+		Rect2 box = GetBox(boxStart.Value, pointer);
+		boxStart = null;
+		selectionBox.Hide();
+
+		if (!IsBoxDrag(box))
+		{
+			return;
+		}
+
+		Rect2 diagramBox = new((box.Position - anchor.Position) / anchor.Scale, box.Size / anchor.Scale);
+		foreach ((UMLNode node, UMLNodeContainer container) in containers)
+		{
+			if (new Rect2(container.Position, GetSize(container)).Intersects(diagramBox, true))
+			{
+				selectedNames.Add(node.Name);
+			}
+		}
+
+		QueueRedraw();
+	}
+
+	private static Rect2 GetBox(Vector2 corner, Vector2 oppositeCorner)
+	{
+		return new Rect2(corner, Vector2.Zero).Expand(oppositeCorner);
+	}
+
+	private static bool IsBoxDrag(Rect2 box)
+	{
+		return box.Size.X >= BoxDragThreshold || box.Size.Y >= BoxDragThreshold;
+	}
+
 	public void RenderDiagram(UMLDiagram newDiagram)
 	{
 		bool isDiagramRendered = newDiagram != null;
@@ -931,6 +1117,7 @@ public partial class VisualEditor : Control
 		}
 
 		diagram = newDiagram;
+		selectedNames.RemoveWhere(name => newDiagram.FindNode(name) == null);
 		connectMenu.SetItemDisabled(
 			connectMenu.GetItemIndex(DeleteConnectionId),
 			newDiagram.Relationships.Count == 0
@@ -961,7 +1148,7 @@ public partial class VisualEditor : Control
 			}
 		}
 
-		PushAutoPositioned(null);
+		PushAutoPositioned([]);
 		QueueRedraw();
 	}
 
@@ -987,32 +1174,64 @@ public partial class VisualEditor : Control
 
 	private void OnNodeContainerDragged(UMLNodeContainer container, Vector2 delta)
 	{
-		if (draggedNodeContainer != null && draggedNodeContainer != container)
+		if (draggedNodeContainer == null)
+		{
+			draggedNodeContainer = container;
+			dragGroup = GetDragGroup(container);
+		}
+		else if (draggedNodeContainer != container)
 		{
 			return;
 		}
 
-		draggedNodeContainer = container;
-		container.Position += delta / anchor.Scale;
-		PushAutoPositioned(container);
+		foreach (UMLNodeContainer member in dragGroup)
+		{
+			member.Position += delta / anchor.Scale;
+		}
+
+		PushAutoPositioned(dragGroup);
 		QueueRedraw();
 	}
 
 	/// <summary>
-	/// Shoves the auto-positioned containers out of the way of every other node,
-	/// and of <paramref name="dragged"/> in particular, so they part around it as
-	/// it moves. Each push starts over from the rest positions, so moving the
-	/// dragged node back lets the others fall back to exactly where they were.
-	/// Only container positions change; the model and the source stay untouched.
+	/// The containers a drag of <paramref name="container"/> moves: the whole
+	/// selection when it is part of it, and just itself otherwise.
 	/// </summary>
-	private void PushAutoPositioned(UMLNodeContainer dragged)
+	private List<UMLNodeContainer> GetDragGroup(UMLNodeContainer container)
+	{
+		if (!selectedNames.Contains(container.UmlNode.Name))
+		{
+			return [container];
+		}
+
+		List<UMLNodeContainer> group = [];
+		foreach ((UMLNode node, UMLNodeContainer member) in containers)
+		{
+			if (selectedNames.Contains(node.Name))
+			{
+				group.Add(member);
+			}
+		}
+
+		return group;
+	}
+
+	/// <summary>
+	/// Shoves the auto-positioned containers out of the way of every other node,
+	/// and of the <paramref name="dragged"/> ones in particular, so they part
+	/// around them as they move. Each push starts over from the rest positions,
+	/// so moving the dragged nodes back lets the others fall back to exactly
+	/// where they were. Only container positions change; the model and the
+	/// source stay untouched.
+	/// </summary>
+	private void PushAutoPositioned(ICollection<UMLNodeContainer> dragged)
 	{
 		List<UMLNodeContainer> movable = [];
 		List<Rect2> restBoxes = [];
 		List<Rect2> fixedBoxes = [];
 		foreach ((UMLNode node, UMLNodeContainer container) in containers)
 		{
-			if (node.IsAutoPositioned && container != dragged)
+			if (node.IsAutoPositioned && !dragged.Contains(container))
 			{
 				movable.Add(container);
 				restBoxes.Add(new Rect2(restPositions[node.Name], GetSize(container)));
@@ -1047,7 +1266,15 @@ public partial class VisualEditor : Control
 		}
 
 		draggedNodeContainer = null;
-		NodePositionChanged?.Invoke(container.UmlNode, container.Position);
+
+		var positions = new Dictionary<UMLNode, Vector2>();
+		foreach (UMLNodeContainer member in dragGroup)
+		{
+			positions[member.UmlNode] = member.Position;
+		}
+
+		dragGroup = [];
+		NodesMoved?.Invoke(positions);
 	}
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)

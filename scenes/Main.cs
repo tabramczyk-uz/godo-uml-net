@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 public partial class Main : Control
@@ -109,7 +110,7 @@ public partial class Main : Control
 
 		visualEditor = GetNode<VisualEditor>("%VisualEditor");
 		visualEditor.NodeNameChanged += OnNodeNameChanged;
-		visualEditor.NodePositionChanged += OnNodePositionChanged;
+		visualEditor.NodesMoved += OnNodesMoved;
 		visualEditor.NodeAdded += OnNodeAdded;
 		visualEditor.RelationshipAdded += OnRelationshipAdded;
 		visualEditor.RelationshipRemoved += OnRelationshipRemoved;
@@ -471,9 +472,9 @@ public partial class Main : Control
 		}
 	}
 
-	private void OnNodePositionChanged(UMLNode node, Vector2 newPosition)
+	private void OnNodesMoved(IReadOnlyDictionary<UMLNode, Vector2> positions)
 	{
-		codeEditor.ChangeNodePosition(node, newPosition);
+		codeEditor.ChangeNodePositions(positions);
 	}
 
 	private void OnNodeAdded(UMLNodeType type, string name, Vector2 position)

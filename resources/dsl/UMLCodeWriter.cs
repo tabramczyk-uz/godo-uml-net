@@ -102,6 +102,22 @@ public static class UMLCodeWriter
 	}
 
 	/// <summary>
+	/// Rewrites the positions of several nodes at once, as when a selection is
+	/// dragged, so the code is changed, and parsed, a single time. Inserting a
+	/// position line moves the lines below it, but each node is found again by
+	/// name, so the ones after still land on their own declarations.
+	/// </summary>
+	public static string SetNodePositions(string code, IReadOnlyDictionary<UMLNode, Vector2> positions)
+	{
+		foreach ((UMLNode node, Vector2 position) in positions)
+		{
+			code = SetNodePosition(code, node, position);
+		}
+
+		return code;
+	}
+
+	/// <summary>
 	/// Appends a declaration, and the position that goes with it, to the end of
 	/// the code. New nodes go last so they can never be used before they are
 	/// declared.

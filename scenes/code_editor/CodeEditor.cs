@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 public partial class CodeEditor : Control
@@ -58,9 +59,13 @@ public partial class CodeEditor : Control
 		SubmitCode();
 	}
 
-	public void ChangeNodePosition(UMLNode node, Vector2 newPosition)
+	/// <summary>
+	/// Writes where the moved nodes now sit, all in one edit, then parses once,
+	/// since each parse rebuilds every node on the canvas.
+	/// </summary>
+	public void ChangeNodePositions(IReadOnlyDictionary<UMLNode, Vector2> positions)
 	{
-		codeEdit.Text = UMLCodeWriter.SetNodePosition(codeEdit.Text, node, newPosition);
+		codeEdit.Text = UMLCodeWriter.SetNodePositions(codeEdit.Text, positions);
 		SubmitCode();
 	}
 
