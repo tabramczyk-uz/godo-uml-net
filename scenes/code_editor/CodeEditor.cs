@@ -97,6 +97,13 @@ public partial class CodeEditor : Control
 		SubmitCode();
 	}
 
+	/// <summary>Appends a block of code, such as pasted nodes, in one edit.</summary>
+	public void AppendBlock(string block)
+	{
+		codeEdit.Text = UMLCodeWriter.AppendBlock(codeEdit.Text, block);
+		SubmitCode();
+	}
+
 	public void AddNode(UMLNodeType type, string name, Vector2 position)
 	{
 		codeEdit.Text = UMLCodeWriter.AddNode(codeEdit.Text, type, name, position);

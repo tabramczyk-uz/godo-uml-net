@@ -342,6 +342,17 @@ public static class UMLCodeWriter
 		return match.Success;
 	}
 
+	/// <summary>
+	/// Appends a block of declarations and relationships, such as pasted nodes,
+	/// to the end of the code, set off from what comes before by a blank line.
+	/// Going last, its relationships can only name nodes declared before them.
+	/// </summary>
+	public static string AppendBlock(string code, string block)
+	{
+		string separator = code.Trim().Length == 0 ? string.Empty : "\n";
+		return Append(code, separator + block.TrimEnd('\n'));
+	}
+
 	private static string Append(string code, string addition)
 	{
 		string separator = code.Length == 0 || code.EndsWith('\n') ? string.Empty : "\n";

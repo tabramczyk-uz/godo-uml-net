@@ -117,6 +117,7 @@ public partial class Main : Control
 		visualEditor.NodesRemoved += OnNodesRemoved;
 		visualEditor.UndoRequested += codeEditor.Undo;
 		visualEditor.RedoRequested += codeEditor.Redo;
+		visualEditor.NodesPasted += codeEditor.AppendBlock;
 
 		document = new UMLDocument(codeEditor.Code);
 		UpdateTitle();

@@ -48,6 +48,12 @@ public partial class VisualEditor : Control
 	public event Action RedoRequested;
 
 	/// <summary>
+	/// Raised when nodes are pasted, with the code declaring them to append.
+	/// They only appear once it has been written into the code.
+	/// </summary>
+	public event Action<string> NodesPasted;
+
+	/// <summary>
 	/// Ids of the node menu's own items. The Connect from Here submenu uses the
 	/// relationship types' values instead, as the Connect menu does.
 	/// </summary>
@@ -1044,6 +1050,20 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		if (@event.IsActionPressed("ui_copy", false, true) && HasFocus())
+		{
+			CopySelection();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+
+		if (@event.IsActionPressed("ui_paste", false, true) && HasFocus())
+		{
+			Paste();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+
 		if (@event.IsActionPressed("Cancel"))
 		{
 			ClearSelection();
@@ -1138,6 +1158,15 @@ public partial class VisualEditor : Control
 
 	private void DeleteSelection()
 	{
+		List<UMLNode> nodes = GetSelectedNodes();
+		if (nodes.Count > 0)
+		{
+			NodesRemoved?.Invoke(nodes);
+		}
+	}
+
+	private List<UMLNode> GetSelectedNodes()
+	{
 		List<UMLNode> nodes = [];
 		foreach (UMLNode node in containers.Keys)
 		{
@@ -1147,10 +1176,35 @@ public partial class VisualEditor : Control
 			}
 		}
 
+		return nodes;
+	}
+
+	/// <summary>Puts the selected nodes on the system clipboard as code.</summary>
+	private void CopySelection()
+	{
+		List<UMLNode> nodes = GetSelectedNodes();
 		if (nodes.Count > 0)
 		{
-			NodesRemoved?.Invoke(nodes);
+			DisplayServer.ClipboardSet(UMLClipboard.Copy(diagram, nodes));
 		}
+	}
+
+	/// <summary>
+	/// Pastes the clipboard as nodes, stepped clear of the nodes already on
+	/// the canvas, and selects them so they can be dragged into place straight
+	/// away. Clipboard text that is not nodes is ignored.
+	/// </summary>
+	private void Paste()
+	{
+		string text = DisplayServer.ClipboardGet();
+		if (!UMLClipboard.TryPaste(text, diagram, NewNodeOffset, out string code, out List<string> names))
+		{
+			return;
+		}
+
+		selectedNames.Clear();
+		selectedNames.UnionWith(names);
+		NodesPasted?.Invoke(code);
 	}
 
 	/// <summary>
