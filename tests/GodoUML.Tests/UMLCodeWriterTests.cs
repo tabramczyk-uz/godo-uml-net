@@ -169,6 +169,31 @@ public class UMLCodeWriterTests
 	}
 
 	[Fact]
+	public void RemovesSeveralNodesAndEveryRelationshipTouchingThem()
+	{
+		string code = string.Join(
+			"\n",
+			"// shop",
+			"class A",
+			"\tposition: [1, 2]",
+			"class B",
+			"\t+ field: Integer",
+			"class C // stays",
+			"A --> B",
+			"B --> C",
+			"C --> C",
+			"A -- C"
+		);
+		UMLDiagram diagram = Parse(code);
+
+		string removed = UMLCodeWriter.RemoveNodes(code, [diagram.FindNode("A"), diagram.FindNode("B")]);
+
+		Assert.Equal("// shop\nclass C // stays\nC --> C", removed);
+		UMLNode remaining = Assert.Single(Parse(removed).Nodes);
+		Assert.Equal("C", remaining.Name);
+	}
+
+	[Fact]
 	public void AppendsARelationshipInTheSpellingTheParserReadsBack()
 	{
 		UMLDiagram diagram = Parse("class Foo\nclass Bar");

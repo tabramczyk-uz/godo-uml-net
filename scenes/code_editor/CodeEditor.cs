@@ -69,6 +69,16 @@ public partial class CodeEditor : Control
 		SubmitCode();
 	}
 
+	/// <summary>
+	/// Deletes the nodes, and every relationship touching them, in one edit,
+	/// then parses once.
+	/// </summary>
+	public void RemoveNodes(IReadOnlyList<UMLNode> nodes)
+	{
+		codeEdit.Text = UMLCodeWriter.RemoveNodes(codeEdit.Text, nodes);
+		SubmitCode();
+	}
+
 	public void AddNode(UMLNodeType type, string name, Vector2 position)
 	{
 		codeEdit.Text = UMLCodeWriter.AddNode(codeEdit.Text, type, name, position);

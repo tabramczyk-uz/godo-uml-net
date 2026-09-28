@@ -132,6 +132,21 @@ public static class UMLCodeWriter
 	}
 
 	/// <summary>
+	/// Removes several nodes at once, as when a selection is deleted, so the
+	/// code is changed, and parsed, a single time. Each node is found again by
+	/// name, so removing one does not throw off where the next one is.
+	/// </summary>
+	public static string RemoveNodes(string code, IEnumerable<UMLNode> nodes)
+	{
+		foreach (UMLNode node in nodes)
+		{
+			code = RemoveNode(code, node);
+		}
+
+		return code;
+	}
+
+	/// <summary>
 	/// Removes a node's declaration, the indented lines that belong to it, and
 	/// every relationship that would be left dangling.
 	/// </summary>

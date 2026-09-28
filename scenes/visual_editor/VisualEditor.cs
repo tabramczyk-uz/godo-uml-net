@@ -32,6 +32,22 @@ public partial class VisualEditor : Control
 	/// </summary>
 	public event Action<UMLRelationship> RelationshipRemoved;
 
+	/// <summary>
+	/// Raised when the node menu's Delete is chosen, with the nodes to delete.
+	/// They only disappear once they have been removed from the code.
+	/// </summary>
+	public event Action<IReadOnlyList<UMLNode>> NodesRemoved;
+
+	/// <summary>
+	/// Ids of the node menu's own items. The Connect from Here submenu uses the
+	/// relationship types' values instead, as the Connect menu does.
+	/// </summary>
+	private enum NodeMenuItem
+	{
+		Rename,
+		Delete,
+	}
+
 	/// <summary>Ids of the View menu's items, as set in the scene.</summary>
 	private enum ViewMenuItem
 	{
@@ -118,6 +134,14 @@ public partial class VisualEditor : Control
 	private PopupMenu connectMenu;
 	private Label hintLabel;
 	private Control selectionBox;
+	private PopupMenu nodeMenu;
+	private readonly PopupMenu connectFromHereMenu = new();
+
+	/// <summary>
+	/// The nodes the open node menu acts on: the right-clicked node, or the
+	/// whole selection it belongs to.
+	/// </summary>
+	private List<UMLNodeContainer> menuTargets = [];
 
 	private CanvasMode mode = CanvasMode.Normal;
 
@@ -190,6 +214,7 @@ public partial class VisualEditor : Control
 		connectMenu = GetNode<PopupMenu>("%Connect");
 		hintLabel = GetNode<Label>("%HintLabel");
 		selectionBox = GetNode<Control>("%SelectionBox");
+		nodeMenu = GetNode<PopupMenu>("%NodeMenu");
 
 		foreach (UMLNodeType type in Enum.GetValues<UMLNodeType>())
 		{
@@ -207,6 +232,14 @@ public partial class VisualEditor : Control
 		addMenu.IdPressed += OnAddMenuIdPressed;
 		connectMenu.IdPressed += OnConnectMenuIdPressed;
 		GetNode<PopupMenu>("%View").IdPressed += OnViewMenuIdPressed;
+
+		foreach (UMLRelationshipType type in Enum.GetValues<UMLRelationshipType>())
+		{
+			connectFromHereMenu.AddItem(GetDisplayName(type), (int)type);
+		}
+
+		nodeMenu.IdPressed += OnNodeMenuIdPressed;
+		connectFromHereMenu.IdPressed += OnConnectFromHereIdPressed;
 	}
 
 	/// <summary>
@@ -995,6 +1028,12 @@ public partial class VisualEditor : Control
 			return;
 		}
 
+		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true } rightClick)
+		{
+			OpenNodeMenu(rightClick.Position);
+			return;
+		}
+
 		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left } mouseEvent)
 		{
 			return;
@@ -1029,6 +1068,86 @@ public partial class VisualEditor : Control
 		{
 			ClearSelection();
 		}
+	}
+
+	/// <summary>
+	/// Opens the node menu for the node under a right-click. Like a left click,
+	/// it first selects that node unless it is already part of the selection,
+	/// so the menu acts on the whole selection or on the clicked node alone.
+	/// Items that only make sense for one node are left out for several.
+	/// </summary>
+	private void OpenNodeMenu(Vector2 eventPosition)
+	{
+		pointerPosition = ToLocal(eventPosition);
+		if (!GetCanvasRect().HasPoint(pointerPosition))
+		{
+			return;
+		}
+
+		UMLNodeContainer clicked = GetContainerAt(eventPosition);
+		if (clicked == null)
+		{
+			return;
+		}
+
+		SelectOnPress(clicked.UmlNode.Name, false);
+		menuTargets = GetSelectionGroup(clicked);
+
+		nodeMenu.Clear();
+		if (menuTargets.Count == 1)
+		{
+			nodeMenu.AddItem("Rename...", (int)NodeMenuItem.Rename);
+			nodeMenu.AddSubmenuNodeItem("Connect from Here", connectFromHereMenu);
+			nodeMenu.AddSeparator();
+			nodeMenu.AddItem("Delete", (int)NodeMenuItem.Delete);
+		}
+		else
+		{
+			nodeMenu.AddItem($"Delete {menuTargets.Count} Nodes", (int)NodeMenuItem.Delete);
+		}
+
+		nodeMenu.Popup(new Rect2I((Vector2I)eventPosition, Vector2I.Zero));
+	}
+
+	private void OnNodeMenuIdPressed(long id)
+	{
+		// A re-parse while the menu was open rebuilds the containers.
+		menuTargets.RemoveAll(container => !IsInstanceValid(container));
+		if (menuTargets.Count == 0)
+		{
+			return;
+		}
+
+		switch ((NodeMenuItem)id)
+		{
+			case NodeMenuItem.Rename:
+				menuTargets[0].StartRename();
+				break;
+			case NodeMenuItem.Delete:
+				List<UMLNode> nodes = menuTargets.ConvertAll(container => container.UmlNode);
+				menuTargets = [];
+				NodesRemoved?.Invoke(nodes);
+				break;
+		}
+	}
+
+	/// <summary>
+	/// Starts connecting with the menu's node already picked as the first end,
+	/// so only the other end is left to click.
+	/// </summary>
+	private void OnConnectFromHereIdPressed(long id)
+	{
+		if (menuTargets.Count == 0 || !IsInstanceValid(menuTargets[0]))
+		{
+			return;
+		}
+
+		UMLNodeContainer source = menuTargets[0];
+		connectionType = (UMLRelationshipType)id;
+		StartMode(CanvasMode.Connecting);
+		connectionSource = source;
+		UpdateHint();
+		QueueRedraw();
 	}
 
 	private void SelectOnPress(string name, bool addToSelection)
@@ -1177,7 +1296,7 @@ public partial class VisualEditor : Control
 		if (draggedNodeContainer == null)
 		{
 			draggedNodeContainer = container;
-			dragGroup = GetDragGroup(container);
+			dragGroup = GetSelectionGroup(container);
 		}
 		else if (draggedNodeContainer != container)
 		{
@@ -1194,10 +1313,11 @@ public partial class VisualEditor : Control
 	}
 
 	/// <summary>
-	/// The containers a drag of <paramref name="container"/> moves: the whole
-	/// selection when it is part of it, and just itself otherwise.
+	/// The containers that dragging <paramref name="container"/>, or its node
+	/// menu, acts on: the whole selection when it is part of it, and just
+	/// itself otherwise.
 	/// </summary>
-	private List<UMLNodeContainer> GetDragGroup(UMLNodeContainer container)
+	private List<UMLNodeContainer> GetSelectionGroup(UMLNodeContainer container)
 	{
 		if (!selectedNames.Contains(container.UmlNode.Name))
 		{

@@ -114,6 +114,7 @@ public partial class Main : Control
 		visualEditor.NodeAdded += OnNodeAdded;
 		visualEditor.RelationshipAdded += OnRelationshipAdded;
 		visualEditor.RelationshipRemoved += OnRelationshipRemoved;
+		visualEditor.NodesRemoved += OnNodesRemoved;
 
 		document = new UMLDocument(codeEditor.Code);
 		UpdateTitle();
@@ -495,5 +496,10 @@ public partial class Main : Control
 	private void OnRelationshipRemoved(UMLRelationship relationship)
 	{
 		codeEditor.RemoveRelationship(relationship);
+	}
+
+	private void OnNodesRemoved(IReadOnlyList<UMLNode> nodes)
+	{
+		codeEditor.RemoveNodes(nodes);
 	}
 }

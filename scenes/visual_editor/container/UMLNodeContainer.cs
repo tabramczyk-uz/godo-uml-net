@@ -112,6 +112,14 @@ public partial class UMLNodeContainer : Control
 		return GetGlobalRect().GetCenter();
 	}
 
+	/// <summary>
+	/// Opens the box for typing a new name, as double-clicking the name does.
+	/// </summary>
+	public void StartRename()
+	{
+		editPopup.ShowAtMousePosition(umlNode.Name);
+	}
+
 	private void OnNameLabelInput(InputEvent @event)
 	{
 		if (
@@ -121,7 +129,7 @@ public partial class UMLNodeContainer : Control
 			&& mouseEvent.ButtonIndex == MouseButton.Left
 		)
 		{
-			editPopup.ShowAtMousePosition(umlNode.Name);
+			StartRename();
 		}
 	}
 
