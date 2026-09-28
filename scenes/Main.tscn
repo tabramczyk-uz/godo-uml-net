@@ -37,7 +37,7 @@ flat = true
 
 [node name="File" type="PopupMenu" parent="VBoxContainer/MenuBar" unique_id=1650189312]
 unique_name_in_owner = true
-item_count = 6
+item_count = 7
 item_0/text = "New"
 item_0/id = 3
 item_1/text = "Open..."
@@ -48,8 +48,10 @@ item_3/text = "Save As..."
 item_3/id = 0
 item_4/id = 4
 item_4/separator = true
-item_5/text = "Export to PlantUML..."
-item_5/id = 5
+item_5/text = "Import from PlantUML..."
+item_5/id = 6
+item_6/text = "Export to PlantUML..."
+item_6/id = 5
 
 [node name="HSplitContainer" type="HSplitContainer" parent="VBoxContainer" unique_id=1854219227]
 layout_mode = 2
@@ -103,3 +105,27 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(600, 380)
 theme_override_colors/font_readonly_color = Color(0.875, 0.875, 0.875, 1)
 editable = false
+
+[node name="ImportDialog" type="ConfirmationDialog" parent="." unique_id=1604839271]
+unique_name_in_owner = true
+title = "Import from PlantUML"
+size = Vector2i(640, 480)
+ok_button_text = "Import"
+dialog_hide_on_ok = false
+
+[node name="ImportContent" type="VBoxContainer" parent="ImportDialog" unique_id=918273645]
+
+[node name="PlantUMLInput" type="TextEdit" parent="ImportDialog/ImportContent" unique_id=1357924680]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(600, 360)
+layout_mode = 2
+size_flags_vertical = 3
+placeholder_text = "Paste PlantUML code here, from @startuml to @enduml."
+
+[node name="ImportMessage" type="Label" parent="ImportDialog/ImportContent" unique_id=246813579]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.72, 0.4, 1)
+autowrap_mode = 3

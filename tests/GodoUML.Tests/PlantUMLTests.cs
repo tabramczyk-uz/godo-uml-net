@@ -304,4 +304,48 @@ public class PlantUMLImporterTests
 		var node = (UMLClass)Assert.Single(result.Diagram.Nodes);
 		Assert.Equal("", Assert.Single(node.Attributes).Type);
 	}
+
+	[Fact]
+	public void HasNothingToSayAboutACompleteImport()
+	{
+		PlantUMLImportResult result = PlantUMLImporter.Import("@startuml\nclass A\n@enduml");
+
+		Assert.False(result.IsEmpty);
+		Assert.Null(result.DescribeSkippedLines());
+	}
+
+	[Theory]
+	[InlineData("")]
+	[InlineData("@startuml\n@enduml")]
+	[InlineData("@startuml\nskinparam monochrome true\n@enduml")]
+	public void FindsNothingToImportWithoutNodes(string source)
+	{
+		Assert.True(PlantUMLImporter.Import(source).IsEmpty);
+	}
+
+	[Fact]
+	public void ListsTheLinesAnImportLeavesOut()
+	{
+		PlantUMLImportResult result = PlantUMLImporter.Import(
+			"@startuml\nclass A\nfoo bar baz\n@enduml"
+		);
+
+		Assert.Equal(
+			"1 line could not be imported and will be left out:\n" + result.Warnings[0],
+			result.DescribeSkippedLines()
+		);
+	}
+
+	[Fact]
+	public void ShortensALongListOfSkippedLines()
+	{
+		string source = "@startuml\nclass A\n" + string.Concat(Enumerable.Repeat("foo bar baz\n", 5)) + "@enduml";
+		PlantUMLImportResult result = PlantUMLImporter.Import(source);
+
+		string description = result.DescribeSkippedLines(maxListed: 2);
+
+		Assert.StartsWith("5 lines could not be imported and will be left out:\n", description);
+		Assert.Equal(4, description.Split('\n').Length);
+		Assert.EndsWith("\n...and 3 more.", description);
+	}
 }

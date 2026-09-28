@@ -11,7 +11,11 @@ public partial class Main : Control
 		Save = 2,
 		New = 3,
 		ExportToPlantUML = 5,
+		ImportFromPlantUML = 6,
 	}
+
+	private const string ImportText = "Import";
+	private const string ImportAnywayText = "Import Anyway";
 
 	/// <summary>The action of the unsaved-changes dialog's Don't Save button.</summary>
 	private const string DiscardAction = "discard";
@@ -31,6 +35,15 @@ public partial class Main : Control
 	private AcceptDialog exportDialog;
 	private TextEdit plantUmlText;
 	private Button copyButton;
+	private ConfirmationDialog importDialog;
+	private TextEdit plantUmlInput;
+	private Label importMessage;
+
+	/// <summary>
+	/// Whether the import dialog has already listed the lines the pasted
+	/// PlantUML would lose, so pressing Import again goes ahead anyway.
+	/// </summary>
+	private bool skippedLinesShown = false;
 
 	private UMLDocument document;
 
@@ -84,6 +97,12 @@ public partial class Main : Control
 		plantUmlText = GetNode<TextEdit>("%PlantUMLText");
 		copyButton = exportDialog.AddButton(CopyText, action: CopyAction);
 		exportDialog.CustomAction += OnExportDialogCustomAction;
+
+		importDialog = GetNode<ConfirmationDialog>("%ImportDialog");
+		plantUmlInput = GetNode<TextEdit>("%PlantUMLInput");
+		importMessage = GetNode<Label>("%ImportMessage");
+		importDialog.Confirmed += OnImportConfirmed;
+		plantUmlInput.TextChanged += ResetImportDialog;
 
 		codeEditor = GetNode<CodeEditor>("%CodeEditor");
 		codeEditor.CodeChanged += OnCodeChanged;
@@ -142,6 +161,11 @@ public partial class Main : Control
 			case FileMenuItem.ExportToPlantUML:
 				ExportToPlantUML();
 				break;
+			case FileMenuItem.ImportFromPlantUML:
+				ResetImportDialog();
+				importDialog.PopupCentered();
+				plantUmlInput.GrabFocus();
+				break;
 		}
 	}
 
@@ -179,16 +203,75 @@ public partial class Main : Control
 	}
 
 	/// <summary>
-	/// Replaces the diagram with an empty, untitled one, so the next Save asks
-	/// where to put it. The Save As dialog stays in the same folder but forgets
-	/// the old file name, so it cannot suggest overwriting that file.
+	/// Imports the pasted PlantUML as a new, untitled diagram. Pasted text with
+	/// nothing to import keeps the dialog open with a note saying so. Text the
+	/// importer only partly understands first lists the lines it would lose,
+	/// and imports on a second press.
 	/// </summary>
+	private void OnImportConfirmed()
+	{
+		PlantUMLImportResult result = PlantUMLImporter.Import(plantUmlInput.Text);
+		if (result.IsEmpty)
+		{
+			ShowImportMessage(
+				"There is nothing to import: no classes, interfaces, enums, use cases or actors were found."
+			);
+			return;
+		}
+
+		string skippedLines = result.DescribeSkippedLines();
+		if (skippedLines != null && !skippedLinesShown)
+		{
+			ShowImportMessage(skippedLines);
+			importDialog.OkButtonText = ImportAnywayText;
+			skippedLinesShown = true;
+			return;
+		}
+
+		importDialog.Hide();
+		string code = UMLCodeGenerator.Generate(result.Diagram);
+		ConfirmDiscardingChanges(
+			"importing a diagram",
+			() =>
+			{
+				ReplaceDiagram(code);
+				plantUmlInput.Text = string.Empty;
+			}
+		);
+	}
+
+	private void ShowImportMessage(string message)
+	{
+		importMessage.Text = message;
+		importMessage.Show();
+	}
+
+	/// <summary>Clears the import dialog's note, as when the pasted text changes.</summary>
+	private void ResetImportDialog()
+	{
+		importMessage.Hide();
+		importDialog.OkButtonText = ImportText;
+		skippedLinesShown = false;
+	}
+
 	private void NewDiagram()
 	{
+		ReplaceDiagram(string.Empty);
+	}
+
+	/// <summary>
+	/// Replaces the diagram with <paramref name="code"/> as a new, untitled
+	/// one, so the next Save asks where to put it: empty for New, generated for
+	/// an import, which is therefore unsaved. The Save As dialog stays in the
+	/// same folder but forgets the old file name, so it cannot suggest
+	/// overwriting that file.
+	/// </summary>
+	private void ReplaceDiagram(string code)
+	{
 		visualEditor.ForgetLayout();
-		codeEditor.LoadCode(string.Empty);
+		codeEditor.LoadCode(code);
 		visualEditor.FrameDiagram();
-		document = new UMLDocument(codeEditor.Code);
+		document = new UMLDocument();
 		saveDialog.CurrentFile = string.Empty;
 		UpdateTitle();
 	}
