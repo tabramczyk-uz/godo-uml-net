@@ -10,10 +10,12 @@ using Godot;
 /// <item>A node that is deleted or pinned loses its spot, so one coming back
 /// under that name, or unpinned by Reset Position, is placed by the current
 /// layout rather than where it once was.</item>
-/// <item>When the relationships between auto-positioned nodes gain one the
-/// layout did not have, every spot is dropped and the nodes take the fresh
-/// layout, since the rows it chose may no longer fit. Losing a relationship,
-/// as when a node is deleted or pinned, leaves the spots as they are.</item>
+/// <item>When the relationships between auto-positioned nodes change, every
+/// spot is dropped and the nodes take the fresh layout, since the rows it
+/// chose may no longer fit. That covers a relationship added, removed or
+/// turned around, and a node deleted along with its relationships. Pinning a
+/// node does not count: its relationships are still there, the layout merely
+/// stops placing it, and the rest stay where they are.</item>
 /// </list>
 /// </summary>
 public class UMLLayoutMemory
@@ -22,9 +24,18 @@ public class UMLLayoutMemory
 
 	/// <summary>
 	/// The relationships between auto-positioned nodes at the last update, as
-	/// above/below pairs of names.
+	/// above/below pairs of names: what the layout itself works from.
 	/// </summary>
-	private HashSet<(string Above, string Below)> edges = [];
+	private HashSet<(string Above, string Below)> layoutEdges = [];
+
+	/// <summary>Every relationship at the last update, in the same form.</summary>
+	private HashSet<(string Above, string Below)> allEdges = [];
+
+	/// <summary>
+	/// Renames made on the canvas since the last update, old name to new. They
+	/// may yet be refused, so they are only applied once the code shows them.
+	/// </summary>
+	private readonly Dictionary<string, string> pendingRenames = [];
 
 	/// <summary>
 	/// Takes in a freshly laid out diagram, whose auto-positioned nodes carry
@@ -32,13 +43,30 @@ public class UMLLayoutMemory
 	/// </summary>
 	public void Update(UMLDiagram diagram)
 	{
-		HashSet<(string Above, string Below)> newEdges = GetEdges(diagram);
-		if (!newEdges.IsSubsetOf(edges))
+		ApplyRenames(diagram);
+
+		HashSet<(string Above, string Below)> newAllEdges = GetEdges(diagram, autoPositionedOnly: false);
+		HashSet<(string Above, string Below)> newLayoutEdges = GetEdges(diagram, autoPositionedOnly: true);
+
+		bool gained = !newLayoutEdges.IsSubsetOf(layoutEdges);
+		bool removed = false;
+		foreach ((string Above, string Below) edge in layoutEdges)
+		{
+			// Gone from the layout and from the diagram: not merely pinned.
+			if (!newLayoutEdges.Contains(edge) && !newAllEdges.Contains(edge))
+			{
+				removed = true;
+				break;
+			}
+		}
+
+		if (gained || removed)
 		{
 			restPositions.Clear();
 		}
 
-		edges = newEdges;
+		layoutEdges = newLayoutEdges;
+		allEdges = newAllEdges;
 
 		var autoPositioned = new HashSet<string>();
 		foreach (UMLNode node in diagram.Nodes)
@@ -65,23 +93,14 @@ public class UMLLayoutMemory
 	}
 
 	/// <summary>
-	/// Gives a node's spot, and its relationships, to its new name as well, so
-	/// a rename does not move anything. The old name keeps them too, since the
-	/// rename may yet be refused; the next <see cref="Update"/> drops whichever
-	/// name the code no longer uses. A spot already held under the new name is
-	/// left alone.
+	/// Notes a rename made on the canvas, so that once the code carries it the
+	/// node keeps its spot and its relationships do not count as changed. A
+	/// refused rename never reaches the code, and is dropped at the next
+	/// <see cref="Update"/>.
 	/// </summary>
 	public void Rename(string oldName, string newName)
 	{
-		if (restPositions.TryGetValue(oldName, out Vector2 position))
-		{
-			restPositions.TryAdd(newName, position);
-		}
-
-		foreach ((string above, string below) in new List<(string, string)>(edges))
-		{
-			edges.Add((above == oldName ? newName : above, below == oldName ? newName : below));
-		}
+		pendingRenames[oldName] = newName;
 	}
 
 	/// <summary>
@@ -91,16 +110,63 @@ public class UMLLayoutMemory
 	public void Clear()
 	{
 		restPositions.Clear();
-		edges = [];
+		layoutEdges = [];
+		allEdges = [];
+		pendingRenames.Clear();
 	}
 
-	private static HashSet<(string Above, string Below)> GetEdges(UMLDiagram diagram)
+	/// <summary>
+	/// Carries the spots and relationships of each canvas rename over to the
+	/// new name, if the diagram shows the rename went through.
+	/// </summary>
+	private void ApplyRenames(UMLDiagram diagram)
+	{
+		foreach ((string oldName, string newName) in pendingRenames)
+		{
+			if (diagram.FindNode(newName) == null || diagram.FindNode(oldName) != null)
+			{
+				continue;
+			}
+
+			if (restPositions.Remove(oldName, out Vector2 position))
+			{
+				restPositions[newName] = position;
+			}
+
+			layoutEdges = RenameIn(layoutEdges, oldName, newName);
+			allEdges = RenameIn(allEdges, oldName, newName);
+		}
+
+		pendingRenames.Clear();
+	}
+
+	private static HashSet<(string Above, string Below)> RenameIn(
+		HashSet<(string Above, string Below)> edges,
+		string oldName,
+		string newName
+	)
+	{
+		var renamed = new HashSet<(string Above, string Below)>();
+		foreach ((string above, string below) in edges)
+		{
+			renamed.Add((above == oldName ? newName : above, below == oldName ? newName : below));
+		}
+
+		return renamed;
+	}
+
+	private static HashSet<(string Above, string Below)> GetEdges(UMLDiagram diagram, bool autoPositionedOnly)
 	{
 		var result = new HashSet<(string Above, string Below)>();
 		foreach (UMLRelationship relationship in diagram.Relationships)
 		{
 			(UMLNode above, UMLNode below) = UMLAutoLayout.Orient(relationship);
-			if (above != below && above.IsAutoPositioned && below.IsAutoPositioned)
+			if (above == below)
+			{
+				continue;
+			}
+
+			if (!autoPositionedOnly || (above.IsAutoPositioned && below.IsAutoPositioned))
 			{
 				result.Add((above.Name, below.Name));
 			}

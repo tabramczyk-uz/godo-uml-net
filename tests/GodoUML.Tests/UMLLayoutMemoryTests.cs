@@ -67,7 +67,7 @@ public class UMLLayoutMemoryTests
 	}
 
 	[Fact]
-	public void KeepsSpotsWhenARelationshipIsRemoved()
+	public void LaysOutAfreshWhenARelationshipIsRemoved()
 	{
 		var memory = new UMLLayoutMemory();
 		UMLDiagram before = Parse("class A", "class B", "class C", "B --|> A");
@@ -76,7 +76,52 @@ public class UMLLayoutMemoryTests
 		UMLDiagram after = Parse("class A", "class B", "class C");
 		memory.Update(after);
 
+		Assert.NotEqual(Fresh(before, "B"), Fresh(after, "B"));
+		Assert.Equal(Fresh(after, "B"), Rest(memory, after, "B"));
+	}
+
+	[Fact]
+	public void LaysOutAfreshWhenANodeIsDeletedWithItsRelationships()
+	{
+		var memory = new UMLLayoutMemory();
+		UMLDiagram before = Parse("class A", "class B", "class C", "B --|> A");
+		memory.Update(before);
+
+		UMLDiagram after = Parse("class B", "class C");
+		memory.Update(after);
+
+		Assert.NotEqual(Fresh(before, "B"), Fresh(after, "B"));
+		Assert.Equal(Fresh(after, "B"), Rest(memory, after, "B"));
+	}
+
+	[Fact]
+	public void KeepsSpotsWhenANodeIsPinned()
+	{
+		var memory = new UMLLayoutMemory();
+		UMLDiagram before = Parse("class A", "class B", "class C", "C --|> A");
+		memory.Update(before);
+
+		// Dropping A after a drag writes its position, taking its relationship
+		// out of what the layout sees, though the relationship is still there.
+		UMLDiagram after = Parse("class A", "\tposition: [600, 600]", "class B", "class C", "C --|> A");
+		memory.Update(after);
+
+		Assert.NotEqual(Fresh(before, "C"), Fresh(after, "C"));
+		Assert.Equal(Fresh(before, "C"), Rest(memory, after, "C"));
 		Assert.Equal(Fresh(before, "B"), Rest(memory, after, "B"));
+	}
+
+	[Fact]
+	public void KeepsSpotsWhenARelationshipToAPinnedNodeIsRemoved()
+	{
+		var memory = new UMLLayoutMemory();
+		UMLDiagram before = Parse("class A", "\tposition: [600, 600]", "class B", "class C", "C --|> B", "C --> A");
+		memory.Update(before);
+
+		UMLDiagram after = Parse("class A", "\tposition: [600, 600]", "class B", "class C", "C --|> B", "class D");
+		memory.Update(after);
+
+		Assert.Equal(Fresh(before, "C"), Rest(memory, after, "C"));
 	}
 
 	[Fact]
