@@ -201,19 +201,31 @@ public static class UMLAutoLayout
 
 		foreach (UMLRelationship relationship in relationships)
 		{
+			(UMLNode above, UMLNode below) = Orient(relationship);
 			if (
-				!indices.TryGetValue(relationship.From, out int from)
-				|| !indices.TryGetValue(relationship.To, out int to)
+				!indices.TryGetValue(above, out int from)
+				|| !indices.TryGetValue(below, out int to)
 				|| from == to
 			)
 			{
 				continue;
 			}
 
-			edges.Add(PointsAtParent(relationship) ? (to, from) : (from, to));
+			edges.Add((from, to));
 		}
 
 		return edges;
+	}
+
+	/// <summary>
+	/// The relationship as the layout reads it: which of its two nodes belongs
+	/// above the other.
+	/// </summary>
+	public static (UMLNode Above, UMLNode Below) Orient(UMLRelationship relationship)
+	{
+		return PointsAtParent(relationship)
+			? (relationship.To, relationship.From)
+			: (relationship.From, relationship.To);
 	}
 
 	private static bool PointsAtParent(UMLRelationship relationship)

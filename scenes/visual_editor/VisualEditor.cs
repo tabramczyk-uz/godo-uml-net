@@ -210,14 +210,11 @@ public partial class VisualEditor : Control
 	private readonly Dictionary<UMLNode, UMLNodeContainer> containers = [];
 
 	/// <summary>
-	/// Where each auto-positioned node sits when nothing pushes it, by name: the
-	/// spot the layered layout gave it when it first appeared. Every push is
+	/// Where each auto-positioned node sits when nothing pushes it. Every push is
 	/// computed afresh from these, so where a node is shown depends only on where
-	/// the other nodes are now, not on how they got there. Keeping them here also
-	/// stops a re-parse from reshuffling the layout when the set of auto-positioned
-	/// nodes changes.
+	/// the other nodes are now, not on how they got there.
 	/// </summary>
-	private readonly Dictionary<string, Vector2> restPositions = [];
+	private readonly UMLLayoutMemory layoutMemory = new();
 
 	private int zoomLevel = DefaultZoomLevel;
 	private int Zoom
@@ -673,7 +670,7 @@ public partial class VisualEditor : Control
 	/// </summary>
 	public void ForgetLayout()
 	{
-		restPositions.Clear();
+		layoutMemory.Clear();
 	}
 
 	/// <summary>
@@ -1421,13 +1418,9 @@ public partial class VisualEditor : Control
 			{
 				AddNodeContainer(node.ToContainer());
 			}
-
-			if (node.IsAutoPositioned)
-			{
-				restPositions.TryAdd(node.Name, node.Position.Value);
-			}
 		}
 
+		layoutMemory.Update(newDiagram);
 		PushAutoPositioned([]);
 		QueueRedraw();
 	}
@@ -1515,7 +1508,7 @@ public partial class VisualEditor : Control
 			if (node.IsAutoPositioned && !dragged.Contains(container))
 			{
 				movable.Add(container);
-				restBoxes.Add(new Rect2(restPositions[node.Name], GetSize(container)));
+				restBoxes.Add(new Rect2(layoutMemory.GetRestPosition(node), GetSize(container)));
 			}
 			else
 			{
@@ -1560,11 +1553,7 @@ public partial class VisualEditor : Control
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)
 	{
-		if (restPositions.TryGetValue(node.Name, out Vector2 position))
-		{
-			restPositions[newName] = position;
-		}
-
+		layoutMemory.Rename(node.Name, newName);
 		NodeNameChanged?.Invoke(node, newName);
 	}
 }
