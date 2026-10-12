@@ -66,9 +66,10 @@ public static class UMLAutoLayout
 		}
 
 		Dictionary<UMLNode, int> indices = IndexNodes(nodes);
-		List<(int From, int To)> edges = BuildEdges(relationships, indices);
+		List<(int From, int To)> edges = BreakCycles(nodes.Count, BuildEdges(relationships, indices));
 		int[] layers = AssignLayers(nodes.Count, edges);
-		List<List<int>> rows = GroupIntoRows(nodes.Count, layers);
+		(edges, layers) = SplitLongEdges(edges, layers);
+		List<List<int>> rows = GroupIntoRows(layers.Length, layers);
 
 		OrderRows(rows, edges, layers);
 		return PlaceNodes(nodes, rows, obstacles);
@@ -240,8 +241,73 @@ public static class UMLAutoLayout
 	}
 
 	/// <summary>
-	/// Longest-path layering, relaxed at most once per node so a cycle in the
-	/// diagram cannot spin here forever.
+	/// Turns around every edge that closes a cycle, so the layering sees a graph
+	/// without any. Layering a cycle as it stands pushes its nodes down without
+	/// end, which left them far below the rest under a stack of empty rows.
+	///
+	/// A depth-first search from each node in declaration order marks the nodes
+	/// on its current path; an edge back to one of them is what closes a cycle.
+	/// Turning it around keeps it in the graph, so the row ordering still pulls
+	/// its two nodes together. In a cycle, the node declared first ends up on
+	/// top, and walking the search in declaration order keeps the result
+	/// independent of anything but the source.
+	/// </summary>
+	private static List<(int From, int To)> BreakCycles(int nodeCount, List<(int From, int To)> edges)
+	{
+		List<int>[] outgoing = new List<int>[nodeCount];
+		for (int i = 0; i < nodeCount; i++)
+		{
+			outgoing[i] = [];
+		}
+
+		for (int i = 0; i < edges.Count; i++)
+		{
+			outgoing[edges[i].From].Add(i);
+		}
+
+		var state = new VisitState[nodeCount];
+		var acyclic = new List<(int From, int To)>(edges);
+
+		void Visit(int node)
+		{
+			state[node] = VisitState.OnPath;
+			foreach (int edge in outgoing[node])
+			{
+				int next = edges[edge].To;
+				if (state[next] == VisitState.OnPath)
+				{
+					acyclic[edge] = (next, node);
+				}
+				else if (state[next] == VisitState.Unvisited)
+				{
+					Visit(next);
+				}
+			}
+
+			state[node] = VisitState.Done;
+		}
+
+		for (int node = 0; node < nodeCount; node++)
+		{
+			if (state[node] == VisitState.Unvisited)
+			{
+				Visit(node);
+			}
+		}
+
+		return acyclic;
+	}
+
+	private enum VisitState
+	{
+		Unvisited,
+		OnPath,
+		Done,
+	}
+
+	/// <summary>
+	/// Longest-path layering. The edges arrive without cycles, but the passes
+	/// are still capped at one per node as a guard against looping forever.
 	/// </summary>
 	private static int[] AssignLayers(int nodeCount, List<(int From, int To)> edges)
 	{
@@ -266,6 +332,40 @@ public static class UMLAutoLayout
 		}
 
 		return layers;
+	}
+
+	/// <summary>
+	/// Breaks every edge that skips rows into a chain through a placeholder in
+	/// each row it crosses. Lines are drawn straight, so an edge from row 0 to
+	/// row 2 would otherwise run through whatever sits below its upper end in
+	/// row 1; the placeholder takes a cell there, and the row ordering keeps
+	/// the nodes of that row out of its way. Placeholders are numbered on from
+	/// the real nodes, and the returned layers cover them too. They are ordered
+	/// like nodes but never placed.
+	/// </summary>
+	private static (List<(int From, int To)> Edges, int[] Layers) SplitLongEdges(
+		List<(int From, int To)> edges,
+		int[] layers
+	)
+	{
+		List<int> allLayers = [.. layers];
+		List<(int From, int To)> split = [];
+
+		foreach ((int from, int to) in edges)
+		{
+			int previous = from;
+			for (int layer = layers[from] + 1; layer < layers[to]; layer++)
+			{
+				int placeholder = allLayers.Count;
+				allLayers.Add(layer);
+				split.Add((previous, placeholder));
+				previous = placeholder;
+			}
+
+			split.Add((previous, to));
+		}
+
+		return (split, allLayers.ToArray());
 	}
 
 	private static List<List<int>> GroupIntoRows(int nodeCount, int[] layers)
@@ -408,7 +508,12 @@ public static class UMLAutoLayout
 					candidate = CellPosition(offset, column, row);
 				}
 
-				positions[nodes[node]] = candidate;
+				// A placeholder from SplitLongEdges only keeps its cell free.
+				if (node < nodes.Count)
+				{
+					positions[nodes[node]] = candidate;
+				}
+
 				column++;
 			}
 		}

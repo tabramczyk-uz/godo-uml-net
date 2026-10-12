@@ -82,6 +82,116 @@ public class UMLAutoLayoutTests
 		Assert.Equal(3, diagram.Nodes.Count);
 	}
 
+	private static float Row(int row) => UMLAutoLayout.Margin + (row * UMLAutoLayout.RowSpacing);
+
+	[Fact]
+	public void StacksACycleOneNodePerRow()
+	{
+		UMLDiagram diagram = Build("class A", "class B", "class C", "A --> B", "B --> C", "C --> A");
+
+		Assert.Equal(Row(0), diagram.FindNode("A").Position.Value.Y);
+		Assert.Equal(Row(1), diagram.FindNode("B").Position.Value.Y);
+		Assert.Equal(Row(2), diagram.FindNode("C").Position.Value.Y);
+	}
+
+	[Fact]
+	public void StacksTwoNodesPointingAtEachOther()
+	{
+		UMLDiagram diagram = Build("class A", "class B", "A --> B", "B --> A");
+
+		Assert.Equal(Row(0), diagram.FindNode("A").Position.Value.Y);
+		Assert.Equal(Row(1), diagram.FindNode("B").Position.Value.Y);
+	}
+
+	[Fact]
+	public void LeavesNoEmptyRowsAroundACycle()
+	{
+		UMLDiagram diagram = Build(
+			"class Top",
+			"class A",
+			"class B",
+			"class Bottom",
+			"class Loose",
+			"Top --> A",
+			"A --> B",
+			"B --> A",
+			"B --> Bottom"
+		);
+
+		Assert.Equal(Row(0), diagram.FindNode("Top").Position.Value.Y);
+		Assert.Equal(Row(1), diagram.FindNode("A").Position.Value.Y);
+		Assert.Equal(Row(2), diagram.FindNode("B").Position.Value.Y);
+		Assert.Equal(Row(3), diagram.FindNode("Bottom").Position.Value.Y);
+		Assert.Equal(Row(0), diagram.FindNode("Loose").Position.Value.Y);
+	}
+
+	/// <summary>
+	/// Whether the straight line drawn between the centres of two nodes runs
+	/// through a third, taking every node to be the estimated size.
+	/// </summary>
+	private static bool LineCrosses(UMLDiagram diagram, string from, string to, string through)
+	{
+		Vector2 half = UMLAutoLayout.EstimatedNodeSize / 2.0f;
+		Vector2 start = diagram.FindNode(from).Position.Value + half;
+		Vector2 end = diagram.FindNode(to).Position.Value + half;
+		Rect2 box = new(diagram.FindNode(through).Position.Value, UMLAutoLayout.EstimatedNodeSize);
+
+		for (int i = 0; i <= 100; i++)
+		{
+			if (box.HasPoint(start.Lerp(end, i / 100.0f)))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	[Fact]
+	public void KeepsTheLineClosingACycleClearOfTheNodesInBetween()
+	{
+		UMLDiagram diagram = Build("class A", "class B", "class C", "A --> B", "B --> C", "C --> A");
+
+		Assert.False(LineCrosses(diagram, "C", "A", "B"));
+	}
+
+	[Fact]
+	public void KeepsALineSkippingARowClearOfTheNodesInIt()
+	{
+		UMLDiagram diagram = Build("class A", "class B", "class C", "A --> B", "B --> C", "A --> C");
+
+		Assert.False(LineCrosses(diagram, "A", "C", "B"));
+	}
+
+	[Fact]
+	public void KeepsALineSkippingSeveralRowsClearOfTheNodesInThem()
+	{
+		UMLDiagram diagram = Build(
+			"class A",
+			"class B",
+			"class C",
+			"class D",
+			"A --> B",
+			"B --> C",
+			"C --> D",
+			"A --> D"
+		);
+
+		Assert.False(LineCrosses(diagram, "A", "D", "B"));
+		Assert.False(LineCrosses(diagram, "A", "D", "C"));
+	}
+
+	[Fact]
+	public void BreaksACycleWhereverItIsDeclared()
+	{
+		UMLDiagram diagram = Build("class C", "class A", "class B", "A --> B", "B --> C", "C --> A");
+
+		List<float> rows = diagram.Nodes.Select(node => node.Position.Value.Y).Distinct().ToList();
+		Assert.Equal(3, rows.Count);
+		Assert.Equal(Row(0), rows.Min());
+		Assert.Equal(Row(2), rows.Max());
+	}
+
 	[Fact]
 	public void NeverPutsTwoNodesInTheSamePlace()
 	{
