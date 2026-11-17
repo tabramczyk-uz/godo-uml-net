@@ -24,6 +24,6 @@ mono_crash.*.json
 # Visual Studio Code
 .vscode/
 
-# Claude Code
-CLAUDE.md
+# Claude Code (docs/tasks.md is live task state, edited only in the main checkout)
+docs/tasks.md
 .claude/
