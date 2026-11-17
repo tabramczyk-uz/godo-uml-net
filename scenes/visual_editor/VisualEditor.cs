@@ -115,6 +115,7 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private static readonly Vector2 NewNodeOffset = new(24.0f, 24.0f);
 
+	/// <summary>The zoom levels, in percent, from farthest out to closest in.</summary>
 	private static readonly int[] ZoomLevels = [
 		20, 30, 40, 50, 60, 70, 80, 90, // 0-7
 		100, // 8
@@ -220,12 +221,8 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private readonly UMLLayoutMemory layoutMemory = new();
 
+	/// <summary>The current zoom, as an index into <see cref="ZoomLevels"/>.</summary>
 	private int zoomLevel = DefaultZoomLevel;
-	private int Zoom
-	{
-		get => zoomLevel;
-		set => SetZoom(value, GetLocalMousePosition());
-	}
 
 	public override void _Ready()
 	{
@@ -269,13 +266,13 @@ public partial class VisualEditor : Control
 	/// Changes the zoom level while keeping the canvas point under
 	/// <paramref name="pivot"/> where it is.
 	/// </summary>
-	private void SetZoom(int level, Vector2 pivot)
+	private void SetZoomLevel(int level, Vector2 pivot)
 	{
 		zoomLevel = Math.Clamp(level, 0, ZoomLevels.Length - 1);
 
-		float zoom = ZoomLevels[zoomLevel] / 100f;
+		float scale = ZoomLevels[zoomLevel] / 100f;
 		Vector2 worldPivot = (pivot - world.Position) / world.Scale;
-		world.Scale = Vector2.One * zoom;
+		world.Scale = Vector2.One * scale;
 		world.Position = pivot - worldPivot * world.Scale;
 	}
 
@@ -651,13 +648,13 @@ public partial class VisualEditor : Control
 		switch ((ViewMenuItem)id)
 		{
 			case ViewMenuItem.ZoomIn:
-				SetZoom(zoomLevel + 1, canvasCenter);
+				SetZoomLevel(zoomLevel + 1, canvasCenter);
 				break;
 			case ViewMenuItem.ZoomOut:
-				SetZoom(zoomLevel - 1, canvasCenter);
+				SetZoomLevel(zoomLevel - 1, canvasCenter);
 				break;
 			case ViewMenuItem.ResetZoom:
-				SetZoom(DefaultZoomLevel, canvasCenter);
+				SetZoomLevel(DefaultZoomLevel, canvasCenter);
 				break;
 			case ViewMenuItem.FrameDiagram:
 				FrameDiagram();
@@ -688,7 +685,7 @@ public partial class VisualEditor : Control
 		Rect2 canvas = GetCanvasRect();
 		if (containers.Count == 0)
 		{
-			SetZoom(DefaultZoomLevel, canvas.GetCenter());
+			SetZoomLevel(DefaultZoomLevel, canvas.GetCenter());
 			world.Position = canvas.Position;
 			return;
 		}
@@ -707,7 +704,7 @@ public partial class VisualEditor : Control
 			level--;
 		}
 
-		SetZoom(level, Vector2.Zero);
+		SetZoomLevel(level, Vector2.Zero);
 		world.Position = canvas.GetCenter() - bounds.Value.GetCenter() * world.Scale;
 	}
 
@@ -984,12 +981,12 @@ public partial class VisualEditor : Control
 			{
 				if (Input.IsActionJustPressed("ZoomIn"))
 				{
-					Zoom++;
+					SetZoomLevel(zoomLevel + 1, GetLocalMousePosition());
 					QueueRedraw();
 				}
 				else if (Input.IsActionJustPressed("ZoomOut"))
 				{
-					Zoom--;
+					SetZoomLevel(zoomLevel - 1, GetLocalMousePosition());
 					QueueRedraw();
 				}
 			}
