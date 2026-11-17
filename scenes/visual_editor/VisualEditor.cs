@@ -335,7 +335,7 @@ public partial class VisualEditor : Control
 
 	private void OnAddMenuIdPressed(long id)
 	{
-		if (diagram == null)
+		if (!isDiagramValid)
 		{
 			return;
 		}
@@ -347,7 +347,7 @@ public partial class VisualEditor : Control
 
 	private void OnConnectMenuIdPressed(long id)
 	{
-		if (diagram == null)
+		if (!isDiagramValid)
 		{
 			return;
 		}
@@ -1433,8 +1433,8 @@ public partial class VisualEditor : Control
 		isDiagramValid = newDiagram != null;
 		grayOut.Visible = !isDiagramValid;
 		EndMode();
-		menuBar.SetMenuDisabled(addMenu.GetIndex(), !isDiagramValid);
-		menuBar.SetMenuDisabled(connectMenu.GetIndex(), !isDiagramValid);
+		SetMenuEnabled(addMenu, isDiagramValid);
+		SetMenuEnabled(connectMenu, isDiagramValid);
 		ToggleNodes(isDiagramValid);
 
 		if (!isDiagramValid)
@@ -1472,6 +1472,20 @@ public partial class VisualEditor : Control
 		layoutMemory.Update(newDiagram);
 		PushAutoPositioned([]);
 		QueueRedraw();
+	}
+
+	/// <summary>
+	/// Enables or grays out one of the menu bar's menus together with every
+	/// item in it. Graying out the menu's title alone still let the menu be
+	/// opened and used.
+	/// </summary>
+	private void SetMenuEnabled(PopupMenu menu, bool enabled)
+	{
+		menuBar.SetMenuDisabled(menu.GetIndex(), !enabled);
+		for (int i = 0; i < menu.ItemCount; i++)
+		{
+			menu.SetItemDisabled(i, !enabled);
+		}
 	}
 
 	private void AddNodeContainer(UMLNodeContainer container)
