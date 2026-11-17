@@ -244,6 +244,13 @@ public partial class VisualEditor : Control
 	/// <summary>The current zoom, as an index into <see cref="ZoomLevels"/>.</summary>
 	private int zoomLevel = DefaultZoomLevel;
 
+	/// <summary>
+	/// Whether the Drag button was pressed on the canvas and is still held, so
+	/// the canvas pans even once the mouse leaves it, but not for a drag that
+	/// started over the code editor.
+	/// </summary>
+	private bool isDragPanning = false;
+
 	public override void _Ready()
 	{
 		world = GetNode<Control>("%World");
@@ -553,6 +560,15 @@ public partial class VisualEditor : Control
 		}
 
 		return closest;
+	}
+
+	/// <summary>
+	/// Whether an input event's position lies on the visible canvas, below the
+	/// menu bar.
+	/// </summary>
+	private bool IsOverCanvas(Vector2 eventPosition)
+	{
+		return GetCanvasRect().HasPoint(ToLocal(eventPosition));
 	}
 
 	/// <summary>
@@ -989,8 +1005,22 @@ public partial class VisualEditor : Control
 			HandleSelectionInput(@event);
 		}
 
-		if (@event is InputEventMouseButton)
+		// `_Input` sees every event in the window, so the canvas's own
+		// navigation is limited to the mouse over the canvas, leaving the wheel
+		// and drags over the code editor to the code editor.
+		if (@event is InputEventMouseButton buttonEvent)
 		{
+			bool overCanvas = IsOverCanvas(buttonEvent.Position);
+			if (buttonEvent.IsAction("Drag"))
+			{
+				isDragPanning = buttonEvent.Pressed && overCanvas;
+			}
+
+			if (!overCanvas)
+			{
+				return;
+			}
+
 			if (Input.IsActionPressed("ZoomMode"))
 			{
 				if (Input.IsActionJustPressed("ZoomIn"))
@@ -1020,7 +1050,10 @@ public partial class VisualEditor : Control
 		}
 		else if (@event is InputEventMouseMotion motionEvent)
 		{
-			if (Input.IsActionPressed("Drag") || Input.IsActionPressed("AltDrag"))
+			bool panning =
+				(isDragPanning && Input.IsActionPressed("Drag"))
+				|| (Input.IsActionPressed("AltDrag") && IsOverCanvas(motionEvent.Position));
+			if (panning)
 			{
 				world.Position += motionEvent.Relative;
 				MouseDefaultCursorShape = CursorShape.Drag;
