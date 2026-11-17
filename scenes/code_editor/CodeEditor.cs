@@ -7,12 +7,6 @@ public partial class CodeEditor : Control
 	public event Action<string> CodeChanged;
 
 	[Export]
-	public Color StringColor { get; set; } = new Color();
-
-	[Export]
-	public Color CommentColor { get; set; } = new Color();
-
-	[Export]
 	public Color ErrorColor { get; set; } = new Color();
 
 	private TextEdit codeEdit;
