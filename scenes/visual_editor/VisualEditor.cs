@@ -744,13 +744,10 @@ public partial class VisualEditor : Control
 
 		// Drawn under the nodes, standing off their edges, so it frames them
 		// whatever their shape.
-		foreach ((UMLNode node, UMLNodeContainer container) in containers)
+		foreach (UMLNodeContainer container in GetSelectedContainers())
 		{
-			if (selectedNames.Contains(node.Name))
-			{
-				Rect2 frame = GetRect(container).Grow(SelectionMargin);
-				DrawRect(frame, SelectionColor, false, 2.0f);
-			}
+			Rect2 frame = GetRect(container).Grow(SelectionMargin);
+			DrawRect(frame, SelectionColor, false, 2.0f);
 		}
 
 		foreach (UMLRelationship relationship in diagram.Relationships)
@@ -1181,16 +1178,25 @@ public partial class VisualEditor : Control
 
 	private List<UMLNode> GetSelectedNodes()
 	{
-		List<UMLNode> nodes = [];
-		foreach (UMLNode node in containers.Keys)
+		return GetSelectedContainers().ConvertAll(container => container.UmlNode);
+	}
+
+	/// <summary>
+	/// The containers of the selected nodes, looked up by name in the
+	/// containers of the current render.
+	/// </summary>
+	private List<UMLNodeContainer> GetSelectedContainers()
+	{
+		List<UMLNodeContainer> selected = [];
+		foreach ((UMLNode node, UMLNodeContainer container) in containers)
 		{
 			if (selectedNames.Contains(node.Name))
 			{
-				nodes.Add(node);
+				selected.Add(container);
 			}
 		}
 
-		return nodes;
+		return selected;
 	}
 
 	/// <summary>Puts the selected nodes on the system clipboard as code.</summary>
@@ -1488,16 +1494,7 @@ public partial class VisualEditor : Control
 			return [container];
 		}
 
-		List<UMLNodeContainer> group = [];
-		foreach ((UMLNode node, UMLNodeContainer member) in containers)
-		{
-			if (selectedNames.Contains(node.Name))
-			{
-				group.Add(member);
-			}
-		}
-
-		return group;
+		return GetSelectedContainers();
 	}
 
 	/// <summary>
