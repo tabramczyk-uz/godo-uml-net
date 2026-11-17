@@ -601,7 +601,7 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private void DrawConnectionPreview(UMLRelationshipType type, UMLNodeContainer source)
 	{
-		Rect2 sourceRect = new(source.Position, GetSize(source));
+		Rect2 sourceRect = GetRect(source);
 		Vector2 mouse = (pointerPosition - world.Position) / world.Scale;
 		if (sourceRect.HasPoint(mouse))
 		{
@@ -713,7 +713,7 @@ public partial class VisualEditor : Control
 		Rect2? bounds = null;
 		foreach (UMLNodeContainer container in containers.Values)
 		{
-			Rect2 box = new(container.Position, GetSize(container));
+			Rect2 box = GetRect(container);
 			bounds = bounds?.Merge(box) ?? box;
 		}
 
@@ -748,7 +748,7 @@ public partial class VisualEditor : Control
 		{
 			if (selectedNames.Contains(node.Name))
 			{
-				Rect2 frame = new Rect2(container.Position, GetSize(container)).Grow(SelectionMargin);
+				Rect2 frame = GetRect(container).Grow(SelectionMargin);
 				DrawRect(frame, SelectionColor, false, 2.0f);
 			}
 		}
@@ -1373,7 +1373,7 @@ public partial class VisualEditor : Control
 		Rect2 diagramBox = new((box.Position - world.Position) / world.Scale, box.Size / world.Scale);
 		foreach ((UMLNode node, UMLNodeContainer container) in containers)
 		{
-			if (new Rect2(container.Position, GetSize(container)).Intersects(diagramBox, true))
+			if (GetRect(container).Intersects(diagramBox, true))
 			{
 				selectedNames.Add(node.Name);
 			}
@@ -1525,7 +1525,7 @@ public partial class VisualEditor : Control
 			}
 			else
 			{
-				fixedBoxes.Add(new Rect2(container.Position, GetSize(container)));
+				fixedBoxes.Add(GetRect(container));
 			}
 		}
 
@@ -1543,6 +1543,15 @@ public partial class VisualEditor : Control
 	private static Vector2 GetSize(UMLNodeContainer container)
 	{
 		return container.Size.Max(container.GetCombinedMinimumSize());
+	}
+
+	/// <summary>
+	/// The box a container covers on the canvas, in diagram coordinates, sized
+	/// as by <see cref="GetSize"/>.
+	/// </summary>
+	private static Rect2 GetRect(UMLNodeContainer container)
+	{
+		return new Rect2(container.Position, GetSize(container));
 	}
 
 	private void OnNodeContainerDropped(UMLNodeContainer container)
