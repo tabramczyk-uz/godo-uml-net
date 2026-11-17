@@ -28,7 +28,7 @@ size_flags_horizontal = 3
 focus_mode = 1
 script = ExtResource("1_7vwpt")
 
-[node name="Anchor" type="Control" parent="." unique_id=1676205686]
+[node name="World" type="Control" parent="." unique_id=1676205686]
 unique_name_in_owner = true
 anchors_preset = 0
 mouse_filter = 2

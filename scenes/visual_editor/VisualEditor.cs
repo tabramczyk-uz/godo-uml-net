@@ -148,7 +148,11 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private const float BoxDragThreshold = 4.0f;
 
-	private Control anchor;
+	/// <summary>
+	/// The parent of every node container. Its position and scale are the pan
+	/// and zoom, mapping diagram coordinates onto the editor.
+	/// </summary>
+	private Control world;
 	private ColorRect grayOut;
 	private Control menuPanel;
 	private MenuBar menuBar;
@@ -225,7 +229,7 @@ public partial class VisualEditor : Control
 
 	public override void _Ready()
 	{
-		anchor = GetNode<Control>("%Anchor");
+		world = GetNode<Control>("%World");
 		grayOut = GetNode<ColorRect>("%GrayOut");
 		menuPanel = GetNode<Control>("%MenuPanel");
 		menuBar = GetNode<MenuBar>("%MenuBar");
@@ -270,9 +274,9 @@ public partial class VisualEditor : Control
 		zoomLevel = Math.Clamp(level, 0, ZoomLevels.Length - 1);
 
 		float zoom = ZoomLevels[zoomLevel] / 100f;
-		Vector2 anchorLocalPivot = (pivot - anchor.Position) / anchor.Scale;
-		anchor.Scale = Vector2.One * zoom;
-		anchor.Position = pivot - anchorLocalPivot * anchor.Scale;
+		Vector2 worldPivot = (pivot - world.Position) / world.Scale;
+		world.Scale = Vector2.One * zoom;
+		world.Position = pivot - worldPivot * world.Scale;
 	}
 
 	/// <summary>
@@ -512,8 +516,8 @@ public partial class VisualEditor : Control
 			return null;
 		}
 
-		Vector2 point = (localPosition - anchor.Position) / anchor.Scale;
-		float closestDistance = LinePickDistance / anchor.Scale.X;
+		Vector2 point = (localPosition - world.Position) / world.Scale;
+		float closestDistance = LinePickDistance / world.Scale.X;
 		UMLRelationship closest = null;
 
 		foreach (UMLRelationship relationship in diagram.Relationships)
@@ -547,7 +551,7 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private UMLNodeContainer GetContainerAt(Vector2 globalPosition)
 	{
-		Godot.Collections.Array<Node> children = anchor.GetChildren();
+		Godot.Collections.Array<Node> children = world.GetChildren();
 		for (int i = children.Count - 1; i >= 0; i--)
 		{
 			if (
@@ -581,7 +585,7 @@ public partial class VisualEditor : Control
 	private void DrawConnectionPreview(UMLRelationshipType type, UMLNodeContainer source)
 	{
 		Rect2 sourceRect = new(source.Position, GetSize(source));
-		Vector2 mouse = (pointerPosition - anchor.Position) / anchor.Scale;
+		Vector2 mouse = (pointerPosition - world.Position) / world.Scale;
 		if (sourceRect.HasPoint(mouse))
 		{
 			return;
@@ -619,7 +623,7 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private Vector2 GetNewNodePosition()
 	{
-		Vector2 position = ((GetCanvasRect().GetCenter() - anchor.Position) / anchor.Scale).Round();
+		Vector2 position = ((GetCanvasRect().GetCenter() - world.Position) / world.Scale).Round();
 		while (IsNodeAt(position))
 		{
 			position += NewNodeOffset;
@@ -685,7 +689,7 @@ public partial class VisualEditor : Control
 		if (containers.Count == 0)
 		{
 			SetZoom(DefaultZoomLevel, canvas.GetCenter());
-			anchor.Position = canvas.Position;
+			world.Position = canvas.Position;
 			return;
 		}
 
@@ -704,7 +708,7 @@ public partial class VisualEditor : Control
 		}
 
 		SetZoom(level, Vector2.Zero);
-		anchor.Position = canvas.GetCenter() - bounds.Value.GetCenter() * anchor.Scale;
+		world.Position = canvas.GetCenter() - bounds.Value.GetCenter() * world.Scale;
 	}
 
 	private static bool FitsIn(Vector2 size, Vector2 available)
@@ -719,7 +723,7 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		DrawSetTransform(anchor.Position, 0.0f, anchor.Scale);
+		DrawSetTransform(world.Position, 0.0f, world.Scale);
 
 		// Drawn under the nodes, standing off their edges, so it frames them
 		// whatever their shape.
@@ -992,22 +996,22 @@ public partial class VisualEditor : Control
 			// TODO: Make scrolling smoother on touchpads
 			else if (Input.IsActionJustPressed("ScrollUp"))
 			{
-				anchor.Position += ScrollSensitivity * Vector2.Up;
+				world.Position += ScrollSensitivity * Vector2.Up;
 				QueueRedraw();
 			}
 			else if (Input.IsActionJustPressed("ScrollDown"))
 			{
-				anchor.Position += ScrollSensitivity * Vector2.Down;
+				world.Position += ScrollSensitivity * Vector2.Down;
 				QueueRedraw();
 			}
 			else if (Input.IsActionJustPressed("ScrollLeft"))
 			{
-				anchor.Position += ScrollSensitivity * Vector2.Left;
+				world.Position += ScrollSensitivity * Vector2.Left;
 				QueueRedraw();
 			}
 			else if (Input.IsActionJustPressed("ScrollRight"))
 			{
-				anchor.Position += ScrollSensitivity * Vector2.Right;
+				world.Position += ScrollSensitivity * Vector2.Right;
 				QueueRedraw();
 			}
 		}
@@ -1015,7 +1019,7 @@ public partial class VisualEditor : Control
 		{
 			if (Input.IsActionPressed("Drag") || Input.IsActionPressed("AltDrag"))
 			{
-				anchor.Position += motionEvent.Relative;
+				world.Position += motionEvent.Relative;
 				MouseDefaultCursorShape = CursorShape.Drag;
 				QueueRedraw();
 			}
@@ -1357,7 +1361,7 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		Rect2 diagramBox = new((box.Position - anchor.Position) / anchor.Scale, box.Size / anchor.Scale);
+		Rect2 diagramBox = new((box.Position - world.Position) / world.Scale, box.Size / world.Scale);
 		foreach ((UMLNode node, UMLNodeContainer container) in containers)
 		{
 			if (new Rect2(container.Position, GetSize(container)).Intersects(diagramBox, true))
@@ -1400,9 +1404,9 @@ public partial class VisualEditor : Control
 			newDiagram.Relationships.Count == 0
 		);
 
-		foreach (Node child in anchor.GetChildren())
+		foreach (Node child in world.GetChildren())
 		{
-			anchor.RemoveChild(child);
+			world.RemoveChild(child);
 			child.QueueFree();
 		}
 
@@ -1427,7 +1431,7 @@ public partial class VisualEditor : Control
 
 	private void AddNodeContainer(UMLNodeContainer container)
 	{
-		anchor.AddChild(container);
+		world.AddChild(container);
 		container.Dragged += OnNodeContainerDragged;
 		container.Dropped += OnNodeContainerDropped;
 		container.NameChanged += OnNodeContainerNameChanged;
@@ -1436,7 +1440,7 @@ public partial class VisualEditor : Control
 
 	private void ToggleNodes(bool enabled)
 	{
-		foreach (Node child in anchor.GetChildren())
+		foreach (Node child in world.GetChildren())
 		{
 			if (child is UMLNodeContainer container)
 			{
@@ -1459,7 +1463,7 @@ public partial class VisualEditor : Control
 
 		foreach (UMLNodeContainer member in dragGroup)
 		{
-			member.Position += delta / anchor.Scale;
+			member.Position += delta / world.Scale;
 		}
 
 		PushAutoPositioned(dragGroup);
