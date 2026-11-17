@@ -1048,21 +1048,21 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		if (@event.IsActionPressed("ui_text_select_all", false, true) && HasFocus())
+		if (@event.IsActionPressed("ui_text_select_all", allowEcho: false, exactMatch: true) && HasFocus())
 		{
 			SelectAll();
 			GetViewport().SetInputAsHandled();
 			return;
 		}
 
-		if (@event.IsActionPressed("ui_copy", false, true) && HasFocus())
+		if (@event.IsActionPressed("ui_copy", allowEcho: false, exactMatch: true) && HasFocus())
 		{
 			CopySelection();
 			GetViewport().SetInputAsHandled();
 			return;
 		}
 
-		if (@event.IsActionPressed("ui_paste", false, true) && HasFocus())
+		if (@event.IsActionPressed("ui_paste", allowEcho: false, exactMatch: true) && HasFocus())
 		{
 			Paste();
 			GetViewport().SetInputAsHandled();
@@ -1136,13 +1136,13 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private bool HandleHistoryInput(InputEvent @event)
 	{
-		if (@event.IsActionPressed("ui_redo", false, true))
+		if (@event.IsActionPressed("ui_redo", allowEcho: false, exactMatch: true))
 		{
 			RedoRequested?.Invoke();
 			return true;
 		}
 
-		if (@event.IsActionPressed("ui_undo", false, true))
+		if (@event.IsActionPressed("ui_undo", allowEcho: false, exactMatch: true))
 		{
 			UndoRequested?.Invoke();
 			return true;
