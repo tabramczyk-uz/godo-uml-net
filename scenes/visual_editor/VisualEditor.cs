@@ -126,6 +126,17 @@ public partial class VisualEditor : Control
 	];
 	private const int DefaultZoomLevel = 8;
 
+	/// <summary>
+	/// The scroll actions and the way each one pans the canvas. Only the first
+	/// one pressed counts.
+	/// </summary>
+	private static readonly (string Action, Vector2 Direction)[] ScrollActions = [
+		("ScrollUp", Vector2.Up),
+		("ScrollDown", Vector2.Down),
+		("ScrollLeft", Vector2.Left),
+		("ScrollRight", Vector2.Right),
+	];
+
 	[Export]
 	public float ScrollSensitivity { get; set; } = 5.0f;
 
@@ -990,26 +1001,18 @@ public partial class VisualEditor : Control
 					QueueRedraw();
 				}
 			}
-			// TODO: Make scrolling smoother on touchpads
-			else if (Input.IsActionJustPressed("ScrollUp"))
+			else
 			{
-				world.Position += ScrollSensitivity * Vector2.Up;
-				QueueRedraw();
-			}
-			else if (Input.IsActionJustPressed("ScrollDown"))
-			{
-				world.Position += ScrollSensitivity * Vector2.Down;
-				QueueRedraw();
-			}
-			else if (Input.IsActionJustPressed("ScrollLeft"))
-			{
-				world.Position += ScrollSensitivity * Vector2.Left;
-				QueueRedraw();
-			}
-			else if (Input.IsActionJustPressed("ScrollRight"))
-			{
-				world.Position += ScrollSensitivity * Vector2.Right;
-				QueueRedraw();
+				// TODO: Make scrolling smoother on touchpads
+				foreach ((string action, Vector2 direction) in ScrollActions)
+				{
+					if (Input.IsActionJustPressed(action))
+					{
+						world.Position += ScrollSensitivity * direction;
+						QueueRedraw();
+						break;
+					}
+				}
 			}
 		}
 		else if (@event is InputEventMouseMotion motionEvent)
