@@ -222,6 +222,15 @@ public partial class VisualEditor : Control
 	private Vector2 pointerPosition;
 
 	private UMLDiagram diagram = null;
+
+	/// <summary>
+	/// Whether the code parsed the last time it was submitted. While it did not,
+	/// <see cref="diagram"/> is the last good one, shown grayed out and closed to
+	/// editing. False until the first diagram arrives, as the scene starts
+	/// grayed out.
+	/// </summary>
+	private bool isDiagramValid = false;
+
 	private UMLNodeContainer draggedNodeContainer = null;
 	private readonly Dictionary<UMLNode, UMLNodeContainer> containers = [];
 
@@ -390,7 +399,7 @@ public partial class VisualEditor : Control
 		mode = CanvasMode.Normal;
 		connectionSource = null;
 		hoveredRelationship = null;
-		ToggleNodes(!grayOut.Visible);
+		ToggleNodes(isDiagramValid);
 		MouseDefaultCursorShape = CursorShape.Arrow;
 		hintLabel.Hide();
 		QueueRedraw();
@@ -981,7 +990,7 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		if (mode == CanvasMode.Normal && !grayOut.Visible)
+		if (mode == CanvasMode.Normal && isDiagramValid)
 		{
 			HandleSelectionInput(@event);
 		}
@@ -1385,14 +1394,14 @@ public partial class VisualEditor : Control
 
 	public void RenderDiagram(UMLDiagram newDiagram)
 	{
-		bool isDiagramRendered = newDiagram != null;
-		grayOut.Visible = !isDiagramRendered;
+		isDiagramValid = newDiagram != null;
+		grayOut.Visible = !isDiagramValid;
 		EndMode();
-		menuBar.SetMenuDisabled(addMenu.GetIndex(), !isDiagramRendered);
-		menuBar.SetMenuDisabled(connectMenu.GetIndex(), !isDiagramRendered);
-		ToggleNodes(isDiagramRendered);
+		menuBar.SetMenuDisabled(addMenu.GetIndex(), !isDiagramValid);
+		menuBar.SetMenuDisabled(connectMenu.GetIndex(), !isDiagramValid);
+		ToggleNodes(isDiagramValid);
 
-		if (!isDiagramRendered)
+		if (!isDiagramValid)
 		{
 			return;
 		}
