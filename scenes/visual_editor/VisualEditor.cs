@@ -782,11 +782,8 @@ public partial class VisualEditor : Control
 		out Vector2 toEdge
 	)
 	{
-		UMLNodeContainer fromContainer = containers[relationship.From];
-		UMLNodeContainer toContainer = containers[relationship.To];
-
-		Rect2 fromRect = new(fromContainer.Position, fromContainer.Size);
-		Rect2 toRect  = new(toContainer.Position, toContainer.Size);
+		Rect2 fromRect = GetRect(containers[relationship.From]);
+		Rect2 toRect = GetRect(containers[relationship.To]);
 		Vector2 fromCenter = fromRect.GetCenter();
 		Vector2 toCenter = toRect.GetCenter();
 
