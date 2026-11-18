@@ -285,6 +285,10 @@ public partial class VisualEditor : Control
 			connectFromHereMenu.AddItem(GetDisplayName(type), (int)type);
 		}
 
+		// The submenu is made in code, so it needs a parent to be freed with the
+		// scene; otherwise quitting before the node menu first opens leaks it.
+		// Clearing the node menu keeps it as a child.
+		nodeMenu.AddChild(connectFromHereMenu);
 		nodeMenu.IdPressed += OnNodeMenuIdPressed;
 		connectFromHereMenu.IdPressed += OnConnectFromHereIdPressed;
 	}
