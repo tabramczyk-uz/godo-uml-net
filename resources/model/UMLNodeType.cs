@@ -1,7 +1,7 @@
 /// <summary>
 /// Every kind of box the language can declare. The keyword that spells each one
 /// out lives in <see cref="UMLSyntax"/>; the container scene that draws it is
-/// loaded by <see cref="UMLNode.ToContainer"/> and its overrides.
+/// chosen by <c>UMLNodeContainerFactory</c> on the canvas side.
 /// </summary>
 public enum UMLNodeType
 {

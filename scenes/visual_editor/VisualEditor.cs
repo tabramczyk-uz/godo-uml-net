@@ -1469,7 +1469,7 @@ public partial class VisualEditor : Control
 			}
 			else
 			{
-				AddNodeContainer(node.ToContainer());
+				AddNodeContainer(UMLNodeContainerFactory.Create(node));
 			}
 		}
 
