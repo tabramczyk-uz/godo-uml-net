@@ -70,85 +70,97 @@ public sealed partial class PlantUMLImporter
 		return new PlantUMLImportResult(diagram, warnings);
 	}
 
+	/// <summary>
+	/// Hands the line to the first handler that recognises it. Each handler
+	/// returns whether it consumed the line, so the order below is the order of
+	/// precedence.
+	/// </summary>
 	private void ReadLine(string line)
 	{
-		if (inBlockComment)
-		{
-			inBlockComment = !line.Contains(PlantUMLSyntax.BlockCommentEnd, StringComparison.Ordinal);
-			return;
-		}
+		bool consumed =
+			ContinueBlockComment(line)
+			|| ContinueNote(line)
+			|| StartBlockComment(line)
+			|| ReadComment(line)
+			|| line.Length == 0
+			|| ReadMemberLine(line)
+			|| CloseGroup(line)
+			|| OpenGroup(line)
+			// A statement that describes the diagram is read before notes and
+			// directives are skipped, so a node called Legend, Title or Note is
+			// never mistaken for one.
+			|| ReadDeclaration(line)
+			|| ReadRelationship(line)
+			|| StartNote(line)
+			|| PlantUMLSyntax.IgnoredRegex().IsMatch(line);
 
-		if (inNote)
+		if (!consumed)
 		{
-			inNote = !NoteEndRegex().IsMatch(line);
-			return;
+			Warn(line, "unsupported statement");
 		}
-
-		if (line.StartsWith(PlantUMLSyntax.BlockCommentStart, StringComparison.Ordinal))
-		{
-			inBlockComment = !line.Contains(PlantUMLSyntax.BlockCommentEnd, StringComparison.Ordinal);
-			return;
-		}
-
-		if (line.StartsWith(PlantUMLSyntax.CommentPrefix, StringComparison.Ordinal))
-		{
-			ReadComment(line);
-			return;
-		}
-
-		if (line.Length == 0)
-		{
-			return;
-		}
-
-		if (memberBlockOwner != null)
-		{
-			ReadMemberLine(line);
-			return;
-		}
-
-		if (line.StartsWith('}'))
-		{
-			CloseGroup(line);
-			return;
-		}
-
-		if (GroupRegex().IsMatch(line))
-		{
-			groupDepth += 1;
-			return;
-		}
-
-		// A statement that describes the diagram is read before notes and
-		// directives are skipped, so a node called Legend, Title or Note is never
-		// mistaken for one.
-		if (ReadDeclaration(line) || ReadRelationship(line))
-		{
-			return;
-		}
-
-		if (NoteRegex().IsMatch(line))
-		{
-			// A note is either written inline after a colon, or spread over lines
-			// until its end marker.
-			inNote = !line.Contains(':', StringComparison.Ordinal);
-			return;
-		}
-
-		if (PlantUMLSyntax.IgnoredRegex().IsMatch(line))
-		{
-			return;
-		}
-
-		Warn(line, "unsupported statement");
 	}
 
-	private void ReadComment(string line)
+	private bool ContinueBlockComment(string line)
 	{
+		if (!inBlockComment)
+		{
+			return false;
+		}
+
+		inBlockComment = !line.Contains(PlantUMLSyntax.BlockCommentEnd, StringComparison.Ordinal);
+		return true;
+	}
+
+	private bool StartBlockComment(string line)
+	{
+		if (!line.StartsWith(PlantUMLSyntax.BlockCommentStart, StringComparison.Ordinal))
+		{
+			return false;
+		}
+
+		inBlockComment = !line.Contains(PlantUMLSyntax.BlockCommentEnd, StringComparison.Ordinal);
+		return true;
+	}
+
+	private bool ContinueNote(string line)
+	{
+		if (!inNote)
+		{
+			return false;
+		}
+
+		inNote = !NoteEndRegex().IsMatch(line);
+		return true;
+	}
+
+	private bool StartNote(string line)
+	{
+		if (!NoteRegex().IsMatch(line))
+		{
+			return false;
+		}
+
+		// A note is either written inline after a colon, or spread over lines
+		// until its end marker.
+		inNote = !line.Contains(':', StringComparison.Ordinal);
+		return true;
+	}
+
+	/// <summary>
+	/// Consumes a line comment, picking up the layout hint GodoUML's exporter
+	/// writes as one.
+	/// </summary>
+	private bool ReadComment(string line)
+	{
+		if (!line.StartsWith(PlantUMLSyntax.CommentPrefix, StringComparison.Ordinal))
+		{
+			return false;
+		}
+
 		Match hint = PositionHintRegex().Match(line);
 		if (!hint.Success)
 		{
-			return;
+			return true;
 		}
 
 		Match position = UMLSyntax.PositionRegex().Match(hint.Groups[2].Value.Trim());
@@ -170,17 +182,38 @@ public sealed partial class PlantUMLImporter
 		{
 			positionHints[hint.Groups[1].Value] = new Vector2(x, y);
 		}
+
+		return true;
 	}
 
-	private void CloseGroup(string line)
+	private bool OpenGroup(string line)
 	{
+		if (!GroupRegex().IsMatch(line))
+		{
+			return false;
+		}
+
+		groupDepth += 1;
+		return true;
+	}
+
+	private bool CloseGroup(string line)
+	{
+		if (!line.StartsWith('}'))
+		{
+			return false;
+		}
+
 		if (groupDepth > 0)
 		{
 			groupDepth -= 1;
-			return;
+		}
+		else
+		{
+			Warn(line, "unmatched closing brace");
 		}
 
-		Warn(line, "unmatched closing brace");
+		return true;
 	}
 
 	private bool ReadDeclaration(string line)
@@ -220,26 +253,35 @@ public sealed partial class PlantUMLImporter
 		return true;
 	}
 
-	private void ReadMemberLine(string line)
+	/// <summary>
+	/// Consumes every line inside a classifier's braces, up to and including the
+	/// closing one.
+	/// </summary>
+	private bool ReadMemberLine(string line)
 	{
+		if (memberBlockOwner == null)
+		{
+			return false;
+		}
+
 		if (line.StartsWith('}'))
 		{
 			memberBlockOwner = null;
-			return;
+			return true;
 		}
 
 		string member = PlantUMLSyntax.ModifierRegex().Replace(line, "").Trim();
 		if (member.Length == 0 || PlantUMLSyntax.SeparatorRegex().IsMatch(member))
 		{
-			return;
+			return true;
 		}
 
-		if (ReadMember(member) || ReadTypedMember(member))
+		if (!ReadMember(member) && !ReadTypedMember(member))
 		{
-			return;
+			Warn(line, "unsupported member");
 		}
 
-		Warn(line, "unsupported member");
+		return true;
 	}
 
 	/// <summary>Reads the UML spelling of a member: <c>+ name : Type</c>.</summary>
