@@ -68,6 +68,45 @@ public static class UMLRelationshipTypeExtensions
 		return type is UMLRelationshipType.Dependency or UMLRelationshipType.Realization;
 	}
 
+	/// <summary>
+	/// Reads the relationship a line draws from the endings at its two ends and
+	/// whether it is dashed: the inverse of <see cref="GetEnding"/> and
+	/// <see cref="IsDashed"/>. The strongest ending decides the type; the ends
+	/// carrying it decide the direction. Each grammar turns its own arrow
+	/// spelling into endings and then reads them here, so the GodoUML language
+	/// and PlantUML agree on what an arrow means.
+	/// </summary>
+	public static void FromEndings(
+		UMLRelationshipEnding fromEnding,
+		UMLRelationshipEnding toEnding,
+		bool isDashed,
+		out UMLRelationshipType type,
+		out UMLRelationshipDirection direction
+	)
+	{
+		UMLRelationshipEnding ending = fromEnding >= toEnding ? fromEnding : toEnding;
+
+		type = ending switch
+		{
+			UMLRelationshipEnding.HollowTriangle => isDashed
+				? UMLRelationshipType.Realization
+				: UMLRelationshipType.Generalization,
+			UMLRelationshipEnding.HollowDiamond => UMLRelationshipType.Aggregation,
+			UMLRelationshipEnding.FilledDiamond => UMLRelationshipType.Composition,
+			_ => isDashed ? UMLRelationshipType.Dependency : UMLRelationshipType.Association,
+		};
+
+		bool decoratesFrom = ending != UMLRelationshipEnding.None && fromEnding == ending;
+		bool decoratesTo = ending != UMLRelationshipEnding.None && toEnding == ending;
+		direction = (decoratesFrom, decoratesTo) switch
+		{
+			(true, true) => UMLRelationshipDirection.Both,
+			(true, false) => UMLRelationshipDirection.Backward,
+			(false, true) => UMLRelationshipDirection.Forward,
+			_ => UMLRelationshipDirection.None,
+		};
+	}
+
 	public static UMLRelationshipDirection Flip(this UMLRelationshipDirection direction)
 	{
 		return direction switch

@@ -180,30 +180,13 @@ public static partial class PlantUMLSyntax
 		out UMLRelationshipDirection direction
 	)
 	{
-		UMLRelationshipEnding fromEnding = GetEnding(head);
-		UMLRelationshipEnding toEnding = GetEnding(tail);
-		UMLRelationshipEnding ending = fromEnding >= toEnding ? fromEnding : toEnding;
-		bool isDashed = body.Contains('.');
-
-		type = ending switch
-		{
-			UMLRelationshipEnding.HollowTriangle => isDashed
-				? UMLRelationshipType.Realization
-				: UMLRelationshipType.Generalization,
-			UMLRelationshipEnding.HollowDiamond => UMLRelationshipType.Aggregation,
-			UMLRelationshipEnding.FilledDiamond => UMLRelationshipType.Composition,
-			_ => isDashed ? UMLRelationshipType.Dependency : UMLRelationshipType.Association,
-		};
-
-		bool decoratesFrom = ending != UMLRelationshipEnding.None && fromEnding == ending;
-		bool decoratesTo = ending != UMLRelationshipEnding.None && toEnding == ending;
-		direction = (decoratesFrom, decoratesTo) switch
-		{
-			(true, true) => UMLRelationshipDirection.Both,
-			(true, false) => UMLRelationshipDirection.Backward,
-			(false, true) => UMLRelationshipDirection.Forward,
-			_ => UMLRelationshipDirection.None,
-		};
+		UMLRelationshipTypeExtensions.FromEndings(
+			GetEnding(head),
+			GetEnding(tail),
+			body.Contains('.'),
+			out type,
+			out direction
+		);
 	}
 
 	/// <summary>
