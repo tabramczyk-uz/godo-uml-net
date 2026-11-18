@@ -8,10 +8,6 @@ using Godot;
 /// </summary>
 public class UMLClass : UMLNode
 {
-	private static readonly PackedScene UmlClassContainer = GD.Load<PackedScene>(
-		"uid://miycnuypaj3e"
-	);
-
 	public List<UMLAttribute> Attributes { get; set; }
 	public List<UMLMethod> Methods { get; set; }
 
@@ -33,12 +29,5 @@ public class UMLClass : UMLNode
 	{
 		Attributes = attributes ?? [];
 		Methods = methods ?? [];
-	}
-
-	public override UMLNodeContainer ToContainer()
-	{
-		UMLClassContainer container = UmlClassContainer.Instantiate() as UMLClassContainer;
-		container.UmlClass = this;
-		return container;
 	}
 }

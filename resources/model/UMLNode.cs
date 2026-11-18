@@ -7,8 +7,6 @@ using Godot;
 /// </summary>
 public class UMLNode
 {
-	private static readonly PackedScene UmlNodeContainer = GD.Load<PackedScene>("uid://255l5qlme474");
-
 	public UMLNodeType Type { get; }
 	public string Name { get; set; }
 	public Vector2? Position { get; set; }
@@ -51,12 +49,5 @@ public class UMLNode
 			_ when type.IsClassifier() => new UMLClass(type, name, position),
 			_ => new UMLNode(name, position),
 		};
-	}
-
-	public virtual UMLNodeContainer ToContainer()
-	{
-		UMLNodeContainer container = UmlNodeContainer.Instantiate() as UMLNodeContainer;
-		container.UmlNode = this;
-		return container;
 	}
 }
