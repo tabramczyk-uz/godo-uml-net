@@ -222,6 +222,8 @@ public partial class ClassDiagramCanvas : Control
 
 	public override void _Ready()
 	{
+		// "%Name" finds the node marked as a unique name in this scene (Access as
+		// Unique Name in the editor), wherever it sits in the tree.
 		world = GetNode<CanvasCamera>("%World");
 		grayOut = GetNode<ColorRect>("%GrayOut");
 		menuPanel = GetNode<Control>("%MenuPanel");
