@@ -258,6 +258,9 @@ public static class UMLAutoLayout
 		var state = new VisitState[nodeCount];
 		var acyclic = new List<(int From, int To)>(edges);
 
+		// A local function: it is visible only inside BreakCycles and reads and
+		// writes its variables (state, outgoing, acyclic) directly, so the
+		// recursion doesn't have to pass them along.
 		void Visit(int node)
 		{
 			state[node] = VisitState.OnPath;
