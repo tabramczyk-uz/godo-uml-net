@@ -117,8 +117,8 @@ public partial class Main : Control
 		visualEditor.NodesRemoved += OnNodesRemoved;
 		visualEditor.UndoRequested += codeEditor.Undo;
 		visualEditor.RedoRequested += codeEditor.Redo;
-		visualEditor.NodesPasted += codeEditor.AppendBlock;
-		visualEditor.NodePositionsReset += codeEditor.ResetNodePositions;
+		visualEditor.NodesPasted += OnNodesPasted;
+		visualEditor.NodePositionsReset += OnNodePositionsReset;
 
 		document = new UMLDocument(codeEditor.Code);
 		UpdateTitle();
@@ -469,7 +469,7 @@ public partial class Main : Control
 		string problem = diagram.DescribeRenameProblem(node, newName);
 		if (problem == null)
 		{
-			codeEditor.ChangeNodeName(node, newName);
+			codeEditor.ApplyEdit(UMLCodeWriter.RenameNode(codeEditor.Code, node, newName));
 		}
 		else
 		{
@@ -477,14 +477,33 @@ public partial class Main : Control
 		}
 	}
 
+	/// <summary>
+	/// Writes where the moved nodes now sit, all in one edit, so the code is
+	/// parsed once, since each parse rebuilds every node on the canvas.
+	/// </summary>
 	private void OnNodesMoved(IReadOnlyDictionary<UMLNode, Vector2> positions)
 	{
-		codeEditor.ChangeNodePositions(positions);
+		codeEditor.ApplyEdit(UMLCodeWriter.SetNodePositions(codeEditor.Code, positions));
+	}
+
+	/// <summary>
+	/// Deletes the nodes' position lines in one edit, so the layout places
+	/// them again, and the code is parsed once.
+	/// </summary>
+	private void OnNodePositionsReset(IReadOnlyList<UMLNode> nodes)
+	{
+		codeEditor.ApplyEdit(UMLCodeWriter.RemoveNodePositions(codeEditor.Code, nodes));
 	}
 
 	private void OnNodeAdded(UMLNodeType type, string name, Vector2 position)
 	{
-		codeEditor.AddNode(type, name, position);
+		codeEditor.ApplyEdit(UMLCodeWriter.AddNode(codeEditor.Code, type, name, position));
+	}
+
+	/// <summary>Appends the pasted nodes' code in one edit.</summary>
+	private void OnNodesPasted(string block)
+	{
+		codeEditor.ApplyEdit(UMLCodeWriter.AppendBlock(codeEditor.Code, block));
 	}
 
 	private void OnRelationshipAdded(
@@ -494,16 +513,20 @@ public partial class Main : Control
 		UMLRelationshipDirection direction
 	)
 	{
-		codeEditor.AddRelationship(from, to, type, direction);
+		codeEditor.ApplyEdit(UMLCodeWriter.AddRelationship(codeEditor.Code, from, to, type, direction));
 	}
 
 	private void OnRelationshipRemoved(UMLRelationship relationship)
 	{
-		codeEditor.RemoveRelationship(relationship);
+		codeEditor.ApplyEdit(UMLCodeWriter.RemoveRelationship(codeEditor.Code, relationship));
 	}
 
+	/// <summary>
+	/// Deletes the nodes, and every relationship touching them, in one edit,
+	/// so the code is parsed once.
+	/// </summary>
 	private void OnNodesRemoved(IReadOnlyList<UMLNode> nodes)
 	{
-		codeEditor.RemoveNodes(nodes);
+		codeEditor.ApplyEdit(UMLCodeWriter.RemoveNodes(codeEditor.Code, nodes));
 	}
 }

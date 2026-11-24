@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Godot;
 
 public partial class CodeEditor : Control
@@ -65,69 +64,14 @@ public partial class CodeEditor : Control
 		SubmitCode();
 	}
 
-	public void ChangeNodeName(UMLNode node, string newName)
-	{
-		codeEdit.Text = UMLCodeWriter.RenameNode(codeEdit.Text, node, newName);
-		SubmitCode();
-	}
-
 	/// <summary>
-	/// Writes where the moved nodes now sit, all in one edit, then parses once,
-	/// since each parse rebuilds every node on the canvas.
+	/// Replaces the source with <paramref name="newText"/>, as a canvas edit
+	/// does, and parses it straight away rather than after the typing delay.
+	/// The change is one step in the editor's undo history.
 	/// </summary>
-	public void ChangeNodePositions(IReadOnlyDictionary<UMLNode, Vector2> positions)
+	public void ApplyEdit(string newText)
 	{
-		codeEdit.Text = UMLCodeWriter.SetNodePositions(codeEdit.Text, positions);
-		SubmitCode();
-	}
-
-	/// <summary>
-	/// Deletes the nodes' position lines in one edit, so the layout places
-	/// them again, then parses once.
-	/// </summary>
-	public void ResetNodePositions(IReadOnlyList<UMLNode> nodes)
-	{
-		codeEdit.Text = UMLCodeWriter.RemoveNodePositions(codeEdit.Text, nodes);
-		SubmitCode();
-	}
-
-	/// <summary>
-	/// Deletes the nodes, and every relationship touching them, in one edit,
-	/// then parses once.
-	/// </summary>
-	public void RemoveNodes(IReadOnlyList<UMLNode> nodes)
-	{
-		codeEdit.Text = UMLCodeWriter.RemoveNodes(codeEdit.Text, nodes);
-		SubmitCode();
-	}
-
-	/// <summary>Appends a block of code, such as pasted nodes, in one edit.</summary>
-	public void AppendBlock(string block)
-	{
-		codeEdit.Text = UMLCodeWriter.AppendBlock(codeEdit.Text, block);
-		SubmitCode();
-	}
-
-	public void AddNode(UMLNodeType type, string name, Vector2 position)
-	{
-		codeEdit.Text = UMLCodeWriter.AddNode(codeEdit.Text, type, name, position);
-		SubmitCode();
-	}
-
-	public void AddRelationship(
-		UMLNode from,
-		UMLNode to,
-		UMLRelationshipType type,
-		UMLRelationshipDirection direction
-	)
-	{
-		codeEdit.Text = UMLCodeWriter.AddRelationship(codeEdit.Text, from, to, type, direction);
-		SubmitCode();
-	}
-
-	public void RemoveRelationship(UMLRelationship relationship)
-	{
-		codeEdit.Text = UMLCodeWriter.RemoveRelationship(codeEdit.Text, relationship);
+		codeEdit.Text = newText;
 		SubmitCode();
 	}
 
