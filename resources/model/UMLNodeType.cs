@@ -29,6 +29,8 @@ public enum UMLNodeType
 
 public static class UMLNodeTypeExtensions
 {
+	// `this` on the first parameter makes an extension method: C# enums can't
+	// have methods, but this lets callers write `nodeType.IsClassifier()`.
 	/// <summary>
 	/// True for the node types that own attribute and operation compartments,
 	/// which is exactly the set backed by <see cref="UMLClass"/>.

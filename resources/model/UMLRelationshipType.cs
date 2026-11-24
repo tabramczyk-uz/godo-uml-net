@@ -51,6 +51,8 @@ public enum UMLRelationshipEnding
 
 public static class UMLRelationshipTypeExtensions
 {
+	// `this` on the first parameter makes an extension method: C# enums can't
+	// have methods, but this lets callers write `type.GetEnding()`.
 	public static UMLRelationshipEnding GetEnding(this UMLRelationshipType type)
 	{
 		return type switch
