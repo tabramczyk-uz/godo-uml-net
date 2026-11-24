@@ -75,6 +75,12 @@ public static partial class SequenceSyntax
 		return MessageKindsByOperator.TryGetValue(messageOperator, out kind);
 	}
 
+	/// <summary>Spells out the line that declares a participant.</summary>
+	public static string FormatDeclaration(SequenceParticipantKind kind, string name)
+	{
+		return $"{GetKeyword(kind)} {name}";
+	}
+
 	private static Dictionary<TValue, TKey> Invert<TKey, TValue>(Dictionary<TKey, TValue> table)
 	{
 		Dictionary<TValue, TKey> inverted = [];
