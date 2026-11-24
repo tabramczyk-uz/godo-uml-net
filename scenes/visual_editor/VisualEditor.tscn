@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://cnqa6ac58r558"]
 
 [ext_resource type="Script" uid="uid://biya6vf7y35j6" path="res://scenes/visual_editor/VisualEditor.cs" id="1_7vwpt"]
+[ext_resource type="Script" uid="uid://b2kkfkisx7mq3" path="res://scenes/visual_editor/CanvasCamera.cs" id="2_camera"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_m3nub"]
 content_margin_left = 4.0
@@ -32,6 +33,7 @@ script = ExtResource("1_7vwpt")
 unique_name_in_owner = true
 anchors_preset = 0
 mouse_filter = 2
+script = ExtResource("2_camera")
 
 [node name="SelectionBox" type="Panel" parent="." unique_id=1520736849]
 unique_name_in_owner = true

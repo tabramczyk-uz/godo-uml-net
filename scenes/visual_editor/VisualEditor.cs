@@ -98,8 +98,6 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private const int DeleteConnectionId = 100;
 
-	private const float FrameMargin = 32.0f;
-
 	/// <summary>
 	/// How close, in screen pixels at any zoom, a click must land to a line to
 	/// pick it.
@@ -111,31 +109,6 @@ public partial class VisualEditor : Control
 	/// added in the same spot, so they cascade instead of stacking.
 	/// </summary>
 	private static readonly Vector2 NewNodeOffset = new(24.0f, 24.0f);
-
-	/// <summary>The zoom levels, in percent, from farthest out to closest in.</summary>
-	private static readonly int[] ZoomLevels = [
-		20, 30, 40, 50, 60, 70, 80, 90, // 0-7
-		100, // 8
-		110, 120, 130, 140, 150, 160, 170, 180, 190, // 9-17
-		200, // 18
-		220, 240, 260, 280, // 19-22
-		300, // 23
-	];
-	private const int DefaultZoomLevel = 8;
-
-	/// <summary>
-	/// The scroll actions and the way each one pans the canvas. Only the first
-	/// one pressed counts.
-	/// </summary>
-	private static readonly (string Action, Vector2 Direction)[] ScrollActions = [
-		("ScrollUp", Vector2.Up),
-		("ScrollDown", Vector2.Down),
-		("ScrollLeft", Vector2.Left),
-		("ScrollRight", Vector2.Right),
-	];
-
-	[Export]
-	public float ScrollSensitivity { get; set; } = 5.0f;
 
 	[Export]
 	private Color BackgroundColor = new(0.180392f, 0.180392f, 0.180392f);
@@ -161,7 +134,7 @@ public partial class VisualEditor : Control
 	/// The parent of every node container. Its position and scale are the pan
 	/// and zoom, mapping diagram coordinates onto the editor.
 	/// </summary>
-	private Control world;
+	private CanvasCamera world;
 	private ColorRect grayOut;
 	private Control menuPanel;
 	private MenuBar menuBar;
@@ -240,16 +213,6 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private readonly UMLLayoutMemory layoutMemory = new();
 
-	/// <summary>The current zoom, as an index into <see cref="ZoomLevels"/>.</summary>
-	private int zoomLevel = DefaultZoomLevel;
-
-	/// <summary>
-	/// Whether the Drag button was pressed on the canvas and is still held, so
-	/// the canvas pans even once the mouse leaves it, but not for a drag that
-	/// started over the code editor.
-	/// </summary>
-	private bool isDragPanning = false;
-
 	public VisualEditor()
 	{
 		relationshipLines = new RelationshipLines(node => GetRect(containers[node]));
@@ -257,7 +220,7 @@ public partial class VisualEditor : Control
 
 	public override void _Ready()
 	{
-		world = GetNode<Control>("%World");
+		world = GetNode<CanvasCamera>("%World");
 		grayOut = GetNode<ColorRect>("%GrayOut");
 		menuPanel = GetNode<Control>("%MenuPanel");
 		menuBar = GetNode<MenuBar>("%MenuBar");
@@ -295,20 +258,6 @@ public partial class VisualEditor : Control
 		nodeMenu.AddChild(connectFromHereMenu);
 		nodeMenu.IdPressed += OnNodeMenuIdPressed;
 		connectFromHereMenu.IdPressed += OnConnectFromHereIdPressed;
-	}
-
-	/// <summary>
-	/// Changes the zoom level while keeping the canvas point under
-	/// <paramref name="pivot"/> where it is.
-	/// </summary>
-	private void SetZoomLevel(int level, Vector2 pivot)
-	{
-		zoomLevel = Math.Clamp(level, 0, ZoomLevels.Length - 1);
-
-		float scale = ZoomLevels[zoomLevel] / 100f;
-		Vector2 worldPivot = (pivot - world.Position) / world.Scale;
-		world.Scale = Vector2.One * scale;
-		world.Position = pivot - worldPivot * world.Scale;
 	}
 
 	/// <summary>
@@ -548,21 +497,12 @@ public partial class VisualEditor : Control
 			return null;
 		}
 
-		Vector2 point = (localPosition - world.Position) / world.Scale;
+		Vector2 point = world.ToDiagram(localPosition);
 		return relationshipLines.GetRelationshipAt(
 			diagram.Relationships,
 			point,
 			LinePickDistance / world.Scale.X
 		);
-	}
-
-	/// <summary>
-	/// Whether an input event's position lies on the visible canvas, below the
-	/// menu bar.
-	/// </summary>
-	private bool IsOverCanvas(Vector2 eventPosition)
-	{
-		return GetCanvasRect().HasPoint(ToLocal(eventPosition));
 	}
 
 	/// <summary>
@@ -611,7 +551,7 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private void DrawConnectionPreview(UMLRelationshipType type, UMLNodeContainer source)
 	{
-		Vector2 mouse = (pointerPosition - world.Position) / world.Scale;
+		Vector2 mouse = world.ToDiagram(pointerPosition);
 		RelationshipLines.DrawPreview(
 			this,
 			type,
@@ -629,7 +569,7 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private Vector2 GetNewNodePosition()
 	{
-		Vector2 position = ((GetCanvasRect().GetCenter() - world.Position) / world.Scale).Round();
+		Vector2 position = world.ToDiagram(GetCanvasRect().GetCenter()).Round();
 		while (IsNodeAt(position))
 		{
 			position += NewNodeOffset;
@@ -657,13 +597,13 @@ public partial class VisualEditor : Control
 		switch ((ViewMenuItem)id)
 		{
 			case ViewMenuItem.ZoomIn:
-				SetZoomLevel(zoomLevel + 1, canvasCenter);
+				world.ZoomIn(canvasCenter);
 				break;
 			case ViewMenuItem.ZoomOut:
-				SetZoomLevel(zoomLevel - 1, canvasCenter);
+				world.ZoomOut(canvasCenter);
 				break;
 			case ViewMenuItem.ResetZoom:
-				SetZoomLevel(DefaultZoomLevel, canvasCenter);
+				world.ResetZoom(canvasCenter);
 				break;
 			case ViewMenuItem.FrameDiagram:
 				FrameDiagram();
@@ -691,14 +631,6 @@ public partial class VisualEditor : Control
 	{
 		QueueRedraw();
 
-		Rect2 canvas = GetCanvasRect();
-		if (containers.Count == 0)
-		{
-			SetZoomLevel(DefaultZoomLevel, canvas.GetCenter());
-			world.Position = canvas.Position;
-			return;
-		}
-
 		Rect2? bounds = null;
 		foreach (UMLNodeContainer container in containers.Values)
 		{
@@ -706,20 +638,7 @@ public partial class VisualEditor : Control
 			bounds = bounds?.Merge(box) ?? box;
 		}
 
-		Vector2 available = canvas.Size - 2.0f * FrameMargin * Vector2.One;
-		int level = DefaultZoomLevel;
-		while (level > 0 && !FitsIn(bounds.Value.Size * (ZoomLevels[level] / 100f), available))
-		{
-			level--;
-		}
-
-		SetZoomLevel(level, Vector2.Zero);
-		world.Position = canvas.GetCenter() - bounds.Value.GetCenter() * world.Scale;
-	}
-
-	private static bool FitsIn(Vector2 size, Vector2 available)
-	{
-		return size.X <= available.X && size.Y <= available.Y;
+		world.Frame(bounds, GetCanvasRect());
 	}
 
 	public override void _Draw()
@@ -785,56 +704,17 @@ public partial class VisualEditor : Control
 		// `_Input` sees every event in the window, so the canvas's own
 		// navigation is limited to the mouse over the canvas, leaving the wheel
 		// and drags over the code editor to the code editor.
-		if (@event is InputEventMouseButton buttonEvent)
+		bool moved = world.HandleNavigationInput(@event, GetCanvasRect());
+		if (moved)
 		{
-			bool overCanvas = IsOverCanvas(buttonEvent.Position);
-			if (buttonEvent.IsAction("Drag"))
-			{
-				isDragPanning = buttonEvent.Pressed && overCanvas;
-			}
-
-			if (!overCanvas)
-			{
-				return;
-			}
-
-			if (Input.IsActionPressed("ZoomMode"))
-			{
-				if (Input.IsActionJustPressed("ZoomIn"))
-				{
-					SetZoomLevel(zoomLevel + 1, GetLocalMousePosition());
-					QueueRedraw();
-				}
-				else if (Input.IsActionJustPressed("ZoomOut"))
-				{
-					SetZoomLevel(zoomLevel - 1, GetLocalMousePosition());
-					QueueRedraw();
-				}
-			}
-			else
-			{
-				// TODO: Make scrolling smoother on touchpads
-				foreach ((string action, Vector2 direction) in ScrollActions)
-				{
-					if (Input.IsActionJustPressed(action))
-					{
-						world.Position += ScrollSensitivity * direction;
-						QueueRedraw();
-						break;
-					}
-				}
-			}
+			QueueRedraw();
 		}
-		else if (@event is InputEventMouseMotion motionEvent)
+
+		if (@event is InputEventMouseMotion)
 		{
-			bool panning =
-				(isDragPanning && Input.IsActionPressed("Drag"))
-				|| (Input.IsActionPressed("AltDrag") && IsOverCanvas(motionEvent.Position));
-			if (panning)
+			if (moved)
 			{
-				world.Position += motionEvent.Relative;
 				MouseDefaultCursorShape = CursorShape.Drag;
-				QueueRedraw();
 			}
 			else
 			{
@@ -1176,7 +1056,7 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		Rect2 diagramBox = new((box.Position - world.Position) / world.Scale, box.Size / world.Scale);
+		Rect2 diagramBox = world.ToDiagram(box);
 		foreach ((UMLNode node, UMLNodeContainer container) in containers)
 		{
 			if (GetRect(container).Intersects(diagramBox, true))
