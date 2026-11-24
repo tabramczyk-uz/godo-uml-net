@@ -24,6 +24,54 @@ public static class UMLGeometry
 	}
 
 	/// <summary>
+	/// Finds the point where the segment from <paramref name="origin"/> (inside
+	/// <paramref name="rect"/>) toward <paramref name="towards"/> leaves the
+	/// rect, so relationship lines and their endings start at the node's edge
+	/// instead of its center. It never goes past <paramref name="towards"/>.
+	/// </summary>
+	public static Vector2 ClipToRect(Rect2 rect, Vector2 origin, Vector2 towards)
+	{
+		Vector2 direction = towards - origin;
+		float bestT = 1.0f;
+
+		if (direction.X != 0.0f)
+		{
+			float left = (rect.Position.X - origin.X) / direction.X;
+			float right = (rect.Position.X + rect.Size.X - origin.X) / direction.X;
+			foreach (float t in new[] { left, right })
+			{
+				if (t > 0.0f && t < bestT)
+				{
+					float y = origin.Y + direction.Y * t;
+					if (y >= rect.Position.Y && y <= rect.Position.Y + rect.Size.Y)
+					{
+						bestT = t;
+					}
+				}
+			}
+		}
+
+		if (direction.Y != 0.0f)
+		{
+			float top = (rect.Position.Y - origin.Y) / direction.Y;
+			float bottom = (rect.Position.Y + rect.Size.Y - origin.Y) / direction.Y;
+			foreach (float t in new[] { top, bottom })
+			{
+				if (t > 0.0f && t < bestT)
+				{
+					float x = origin.X + direction.X * t;
+					if (x >= rect.Position.X && x <= rect.Position.X + rect.Size.X)
+					{
+						bestT = t;
+					}
+				}
+			}
+		}
+
+		return origin + direction * bestT;
+	}
+
+	/// <summary>
 	/// Where the segment from the center of <paramref name="rect"/> toward
 	/// <paramref name="towards"/> leaves the ellipse inscribed in the rect, so
 	/// lines meet a use case at its outline rather than its bounding box. Like

@@ -48,6 +48,41 @@ public class UMLGeometryTests
 
 	private static readonly Rect2 Box = new(0.0f, 0.0f, 200.0f, 100.0f);
 
+	private static void AssertNear(Vector2 expected, Vector2 actual)
+	{
+		Assert.Equal(expected.X, actual.X, 4);
+		Assert.Equal(expected.Y, actual.Y, 4);
+	}
+
+	[Fact]
+	public void ClipsToTheSideOfTheRectTheSegmentLeavesThrough()
+	{
+		Vector2 center = Box.GetCenter();
+
+		AssertNear(new Vector2(200.0f, 50.0f), UMLGeometry.ClipToRect(Box, center, new Vector2(400.0f, 50.0f)));
+		AssertNear(new Vector2(100.0f, 0.0f), UMLGeometry.ClipToRect(Box, center, new Vector2(100.0f, -300.0f)));
+	}
+
+	[Fact]
+	public void ClipsADiagonalToTheNearerSide()
+	{
+		// Heading right and down at 45°, the line meets the bottom edge, 50
+		// below the center, long before the right edge, 100 across.
+		AssertNear(
+			new Vector2(150.0f, 100.0f),
+			UMLGeometry.ClipToRect(Box, Box.GetCenter(), new Vector2(400.0f, 350.0f))
+		);
+	}
+
+	[Fact]
+	public void DoesNotClipPastATargetInsideTheRect()
+	{
+		Vector2 inside = new(150.0f, 60.0f);
+
+		Assert.Equal(inside, UMLGeometry.ClipToRect(Box, Box.GetCenter(), inside));
+		Assert.Equal(Box.GetCenter(), UMLGeometry.ClipToRect(Box, Box.GetCenter(), Box.GetCenter()));
+	}
+
 	/// <summary>
 	/// 1 for a point on the outline of the ellipse inscribed in <see cref="Box"/>.
 	/// </summary>
