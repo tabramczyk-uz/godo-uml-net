@@ -98,9 +98,6 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private const int DeleteConnectionId = 100;
 
-	private const float EndingLength = 16.0f;
-	private const float EndingHalfWidth = 7.0f;
-	private const float LabelMargin = 4.0f;
 	private const float FrameMargin = 32.0f;
 
 	/// <summary>
@@ -235,6 +232,12 @@ public partial class VisualEditor : Control
 	private readonly Dictionary<UMLNode, UMLNodeContainer> containers = [];
 
 	/// <summary>
+	/// Where the relationship lines run between the containers, and how they
+	/// are drawn and picked.
+	/// </summary>
+	private readonly RelationshipLines relationshipLines;
+
+	/// <summary>
 	/// Where each auto-positioned node sits when nothing pushes it. Every push is
 	/// computed afresh from these, so where a node is shown depends only on where
 	/// the other nodes are now, not on how they got there.
@@ -250,6 +253,11 @@ public partial class VisualEditor : Control
 	/// started over the code editor.
 	/// </summary>
 	private bool isDragPanning = false;
+
+	public VisualEditor()
+	{
+		relationshipLines = new RelationshipLines(node => GetRect(containers[node]));
+	}
 
 	public override void _Ready()
 	{
@@ -545,25 +553,11 @@ public partial class VisualEditor : Control
 		}
 
 		Vector2 point = (localPosition - world.Position) / world.Scale;
-		float closestDistance = LinePickDistance / world.Scale.X;
-		UMLRelationship closest = null;
-
-		foreach (UMLRelationship relationship in diagram.Relationships)
-		{
-			if (!TryGetRelationshipEdges(relationship, out Vector2 fromEdge, out Vector2 toEdge))
-			{
-				continue;
-			}
-
-			float distance = UMLGeometry.DistanceToSegment(point, fromEdge, toEdge);
-			if (distance <= closestDistance)
-			{
-				closestDistance = distance;
-				closest = relationship;
-			}
-		}
-
-		return closest;
+		return relationshipLines.GetRelationshipAt(
+			diagram.Relationships,
+			point,
+			LinePickDistance / world.Scale.X
+		);
 	}
 
 	/// <summary>
@@ -621,37 +615,16 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private void DrawConnectionPreview(UMLRelationshipType type, UMLNodeContainer source)
 	{
-		Rect2 sourceRect = GetRect(source);
 		Vector2 mouse = (pointerPosition - world.Position) / world.Scale;
-		if (sourceRect.HasPoint(mouse))
-		{
-			return;
-		}
-
-		Vector2 start = UMLGeometry.ClipToRect(sourceRect, sourceRect.GetCenter(), mouse);
-		Vector2 delta = mouse - start;
-		if (delta.LengthSquared() < 0.0001f)
-		{
-			return;
-		}
-
-		Vector2 direction = delta.Normalized();
-		bool decorated = GetDirection(type).DecoratesTo();
-		Vector2 lineEnd = decorated ? mouse - direction * EndingLength : mouse;
-
-		if (type.IsDashed())
-		{
-			DrawDashedLine(start, lineEnd, Colors.White, 2.0f, 6.0f);
-		}
-		else
-		{
-			DrawLine(start, lineEnd, Colors.White, 2.0f, true);
-		}
-
-		if (decorated)
-		{
-			DrawEnding(type.GetEnding(), mouse, -direction, Colors.White);
-		}
+		RelationshipLines.DrawPreview(
+			this,
+			type,
+			GetDirection(type).DecoratesTo(),
+			GetRect(source),
+			mouse,
+			Colors.White,
+			BackgroundColor
+		);
 	}
 
 	/// <summary>
@@ -775,9 +748,11 @@ public partial class VisualEditor : Control
 			Debug.Assert(relationship.From != null);
 			Debug.Assert(relationship.To != null);
 
-			DrawRelationship(
+			relationshipLines.Draw(
+				this,
 				relationship,
-				relationship == hoveredRelationship ? DeleteHighlightColor : Colors.White
+				relationship == hoveredRelationship ? DeleteHighlightColor : Colors.White,
+				BackgroundColor
 			);
 		}
 
@@ -785,156 +760,6 @@ public partial class VisualEditor : Control
 		{
 			DrawConnectionPreview(connectionType, connectionSource);
 		}
-	}
-
-	/// <summary>
-	/// Where a relationship's line meets the edges of its two nodes, in diagram
-	/// coordinates. Drawing and picking both go through here so a click lands
-	/// on exactly the line that is shown. False when the nodes overlap so much
-	/// that no line is drawn.
-	/// </summary>
-	private bool TryGetRelationshipEdges(
-		UMLRelationship relationship,
-		out Vector2 fromEdge,
-		out Vector2 toEdge
-	)
-	{
-		Rect2 fromRect = GetRect(containers[relationship.From]);
-		Rect2 toRect = GetRect(containers[relationship.To]);
-		Vector2 fromCenter = fromRect.GetCenter();
-		Vector2 toCenter = toRect.GetCenter();
-
-		fromEdge = ClipToOutline(relationship.From, fromRect, toCenter);
-		toEdge = ClipToOutline(relationship.To, toRect, fromCenter);
-
-		return (toEdge - fromEdge).LengthSquared() >= 0.0001f;
-	}
-
-	/// <summary>
-	/// Where a line from the middle of <paramref name="node"/> toward
-	/// <paramref name="towards"/> crosses the node's outline: its ellipse for a
-	/// use case, its bounding box for everything else.
-	/// </summary>
-	private static Vector2 ClipToOutline(UMLNode node, Rect2 rect, Vector2 towards)
-	{
-		return node.Type == UMLNodeType.UseCase
-			? UMLGeometry.ClipToEllipse(rect, towards)
-			: UMLGeometry.ClipToRect(rect, rect.GetCenter(), towards);
-	}
-
-	private void DrawRelationship(UMLRelationship relationship, Color color)
-	{
-		if (!TryGetRelationshipEdges(relationship, out Vector2 fromEdge, out Vector2 toEdge))
-		{
-			return;
-		}
-
-		Vector2 direction = (toEdge - fromEdge).Normalized();
-
-		float fromEndingLength = GetEndingLength(relationship.FromEnding);
-		float toEndingLength = GetEndingLength(relationship.ToEnding);
-
-		Vector2 lineStart = fromEdge + direction * fromEndingLength;
-		Vector2 lineEnd = toEdge - direction * toEndingLength;
-
-		if (relationship.IsDashed)
-		{
-			DrawDashedLine(lineStart, lineEnd, color, 2.0f, 6.0f);
-		}
-		else
-		{
-			DrawLine(lineStart, lineEnd, color, 2.0f, true);
-		}
-
-		DrawEnding(relationship.FromEnding, fromEdge, direction, color);
-		DrawEnding(relationship.ToEnding, toEdge, -direction, color);
-
-		Vector2 perpendicular = new(-direction.Y, direction.X);
-
-		if (!string.IsNullOrEmpty(relationship.Label))
-		{
-			DrawText(relationship.Label, (fromEdge + toEdge) / 2.0f + perpendicular * LabelMargin, color);
-		}
-
-		if (!string.IsNullOrEmpty(relationship.FromMultiplicity))
-		{
-			DrawText(
-				relationship.FromMultiplicity,
-				fromEdge + direction * (fromEndingLength + LabelMargin) + perpendicular * LabelMargin,
-				color
-			);
-		}
-
-		if (!string.IsNullOrEmpty(relationship.ToMultiplicity))
-		{
-			DrawText(
-				relationship.ToMultiplicity,
-				toEdge - direction * (toEndingLength + LabelMargin) + perpendicular * LabelMargin,
-				color
-			);
-		}
-	}
-
-	private void DrawText(string text, Vector2 position, Color color)
-	{
-		Font font = GetThemeDefaultFont();
-		int fontSize = GetThemeDefaultFontSize();
-		DrawString(font, position, text, HorizontalAlignment.Left, -1, fontSize, color);
-	}
-
-	/// <summary>
-	/// Draws the shape a relationship's ending calls for, with its tip touching
-	/// the node at <paramref name="tip"/> and its body spreading out along
-	/// <paramref name="outward"/>, the direction away from that node.
-	/// </summary>
-	private void DrawEnding(UMLRelationshipEnding ending, Vector2 tip, Vector2 outward, Color color)
-	{
-		if (ending == UMLRelationshipEnding.None)
-		{
-			return;
-		}
-
-		Vector2 perpendicular = new(-outward.Y, outward.X);
-
-		if (ending == UMLRelationshipEnding.OpenArrow)
-		{
-			Vector2 baseCenter = tip + outward * EndingLength;
-			DrawLine(tip, baseCenter + perpendicular * EndingHalfWidth, color, 2.0f, true);
-			DrawLine(tip, baseCenter - perpendicular * EndingHalfWidth, color, 2.0f, true);
-			return;
-		}
-
-		bool filled = ending == UMLRelationshipEnding.FilledDiamond;
-		Vector2[] points =
-			ending == UMLRelationshipEnding.HollowDiamond || ending == UMLRelationshipEnding.FilledDiamond
-				?
-				[
-					tip,
-					tip + outward * (EndingLength / 2.0f) + perpendicular * EndingHalfWidth,
-					tip + outward * EndingLength,
-					tip + outward * (EndingLength / 2.0f) - perpendicular * EndingHalfWidth,
-				]
-				:
-				[
-					tip,
-					tip + outward * EndingLength + perpendicular * EndingHalfWidth,
-					tip + outward * EndingLength - perpendicular * EndingHalfWidth,
-				];
-
-		if (filled)
-		{
-			DrawColoredPolygon(points, color);
-		}
-		else
-		{
-			DrawColoredPolygon(points, BackgroundColor);
-			DrawPolyline([.. points, points[0]], color, 2.0f, true);
-		}
-	}
-
-	private static float GetEndingLength(UMLRelationshipEnding ending)
-	{
-		return ending == UMLRelationshipEnding.None ? 0.0f : EndingLength;
 	}
 
 	public override void _Input(InputEvent @event)
