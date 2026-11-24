@@ -180,6 +180,89 @@ public class SequenceLayout
 		return activationRects[activationIndex];
 	}
 
+	/// <summary>The participant whose head contains <paramref name="point"/>, or -1.</summary>
+	public int GetParticipantAt(Vector2 point)
+	{
+		for (int i = 0; i < diagram.Participants.Count; i++)
+		{
+			if (GetHeadRect(i).HasPoint(point))
+			{
+				return i;
+			}
+		}
+
+		return -1;
+	}
+
+	/// <summary>
+	/// The participant whose head contains <paramref name="point"/>, or whose
+	/// lifeline passes closest to it within <paramref name="maxDistance"/>
+	/// sideways, or -1.
+	/// </summary>
+	public int GetLifelineAt(Vector2 point, float maxDistance)
+	{
+		int head = GetParticipantAt(point);
+		if (head >= 0)
+		{
+			return head;
+		}
+
+		if (point.Y < HeadHeight || point.Y > LifelineBottom)
+		{
+			return -1;
+		}
+
+		int closest = -1;
+		float closestDistance = maxDistance;
+		for (int i = 0; i < lifelineXs.Length; i++)
+		{
+			float distance = Math.Abs(point.X - lifelineXs[i]);
+			if (distance <= closestDistance)
+			{
+				closest = i;
+				closestDistance = distance;
+			}
+		}
+
+		return closest;
+	}
+
+	/// <summary>
+	/// The message whose label contains <paramref name="point"/>, or whose
+	/// arrow passes closest to it within <paramref name="maxDistance"/>, or -1.
+	/// </summary>
+	public int GetMessageAt(Vector2 point, float maxDistance)
+	{
+		int closest = -1;
+		float closestDistance = maxDistance;
+		for (int n = 0; n < messagePaths.Length; n++)
+		{
+			float distance = labelRects[n].HasPoint(point) ? 0.0f : DistanceToPath(point, messagePaths[n]);
+			if (distance <= closestDistance)
+			{
+				closest = n;
+				closestDistance = distance;
+			}
+		}
+
+		return closest;
+	}
+
+	/// <summary>
+	/// The index a new message drawn at height <paramref name="y"/> takes: just
+	/// below every message that leaves above it.
+	/// </summary>
+	public int GetInsertIndex(float y)
+	{
+		int index = 0;
+		while (index < messageYs.Length && messageYs[index] < y)
+		{
+			index++;
+		}
+
+		return index;
+	}
+
 	/// <summary>
 	/// Spaces the lifelines so neighbouring heads keep apart and every label
 	/// fits between the lifelines its message joins, or beside its
@@ -338,5 +421,16 @@ public class SequenceLayout
 
 		float centerX = (path[0].X + path[1].X) / 2.0f;
 		return new Rect2(centerX - size.X / 2.0f, path[0].Y - LabelGap - size.Y, size);
+	}
+
+	private static float DistanceToPath(Vector2 point, Vector2[] path)
+	{
+		float distance = float.MaxValue;
+		for (int i = 1; i < path.Length; i++)
+		{
+			distance = Math.Min(distance, UMLGeometry.DistanceToSegment(point, path[i - 1], path[i]));
+		}
+
+		return distance;
 	}
 }

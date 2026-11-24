@@ -196,4 +196,66 @@ public class SequenceLayoutTests
 	{
 		Assert.Null(Lay("").Bounds);
 	}
+
+	[Fact]
+	public void PicksAParticipantByItsHead()
+	{
+		SequenceLayout layout = Lay("participant A\nparticipant B\n");
+
+		Assert.Equal(1, layout.GetParticipantAt(layout.GetHeadRect(1).GetCenter()));
+		Assert.Equal(-1, layout.GetParticipantAt(new Vector2(layout.GetLifelineX(1), layout.LifelineBottom - 1.0f)));
+	}
+
+	[Fact]
+	public void PicksALifelineNearTheClick()
+	{
+		SequenceLayout layout = Lay("participant A\nparticipant B\nA -> B\n");
+		float y = layout.LifelineBottom - 1.0f;
+
+		Assert.Equal(1, layout.GetLifelineAt(new Vector2(layout.GetLifelineX(1) + 5.0f, y), 6.0f));
+		Assert.Equal(-1, layout.GetLifelineAt(new Vector2(layout.GetLifelineX(1) + 7.0f, y), 6.0f));
+		Assert.Equal(-1, layout.GetLifelineAt(new Vector2(layout.GetLifelineX(1), layout.LifelineBottom + 1.0f), 6.0f));
+		Assert.Equal(0, layout.GetLifelineAt(layout.GetHeadRect(0).GetCenter(), 6.0f));
+	}
+
+	[Fact]
+	public void PicksAMessageByItsArrowOrItsLabel()
+	{
+		SequenceLayout layout = Lay("participant A\nparticipant B\nA -> B : first\nB --> A\n");
+		float middleX = (layout.GetLifelineX(0) + layout.GetLifelineX(1)) / 2.0f;
+
+		Assert.Equal(1, layout.GetMessageAt(new Vector2(middleX, layout.GetMessageY(1) + 3.0f), 6.0f));
+		Assert.Equal(0, layout.GetMessageAt(layout.GetLabelRect(0).GetCenter(), 6.0f));
+		Assert.Equal(-1, layout.GetMessageAt(new Vector2(middleX, layout.LifelineBottom), 6.0f));
+	}
+
+	[Fact]
+	public void PicksASelfMessageByItsLoop()
+	{
+		SequenceLayout layout = Lay("participant A\nA ->> A\n");
+		IReadOnlyList<Vector2> path = layout.GetMessagePath(0);
+
+		Assert.Equal(0, layout.GetMessageAt((path[1] + path[2]) / 2.0f, 6.0f));
+	}
+
+	// [Theory] runs the test once per [InlineData] row, passing the row's values
+	// as the arguments.
+	[Theory]
+	[InlineData(0.0f, 0)]
+	[InlineData(1000.0f, 2)]
+	public void InsertsANewMessageByHeight(float y, int expected)
+	{
+		SequenceLayout layout = Lay("participant A\nparticipant B\nA -> B\nB --> A\n");
+
+		Assert.Equal(expected, layout.GetInsertIndex(y));
+	}
+
+	[Fact]
+	public void InsertsANewMessageBetweenTheMessagesAroundIt()
+	{
+		SequenceLayout layout = Lay("participant A\nparticipant B\nA -> B\nB --> A\n");
+		float between = (layout.GetMessageY(0) + layout.GetMessageY(1)) / 2.0f;
+
+		Assert.Equal(1, layout.GetInsertIndex(between));
+	}
 }
