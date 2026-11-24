@@ -4,6 +4,8 @@ using Godot;
 /// A use case: its name inside an ellipse instead of a box. The ellipse fills
 /// the container, which the scene pads so the name clears the curve.
 /// </summary>
+// `partial` lets Godot's source generators add the glue code every C# node
+// class needs.
 public partial class UMLUseCaseContainer : UMLNodeContainer
 {
 	private const int OutlinePointCount = 64;

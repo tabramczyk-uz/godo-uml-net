@@ -4,6 +4,8 @@ using Godot;
 /// An actor: a stick figure with its name underneath, and no box around
 /// either.
 /// </summary>
+// `partial` lets Godot's source generators add the glue code every C# node
+// class needs.
 public partial class UMLActorContainer : UMLNodeContainer
 {
 	private Control figure;

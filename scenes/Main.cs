@@ -1,6 +1,8 @@
 using System;
 using Godot;
 
+// `partial` lets Godot's source generators add the glue code every C# node
+// class needs.
 public partial class Main : Control
 {
 	/// <summary>Ids of the File menu's items, as set in the scene.</summary>

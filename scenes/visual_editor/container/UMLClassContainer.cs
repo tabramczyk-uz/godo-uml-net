@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Text;
 using Godot;
 
+// `partial` lets Godot's source generators add the glue code every C# node
+// class needs.
 public partial class UMLClassContainer : UMLNodeContainer
 {
 	private RichTextLabel attributesLabel;

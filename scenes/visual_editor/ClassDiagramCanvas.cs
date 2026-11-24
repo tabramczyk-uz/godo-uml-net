@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Text;
 using Godot;
 
+// `partial` lets Godot's source generators add the glue code every C# node
+// class needs.
 public partial class ClassDiagramCanvas : Control
 {
 	public event Action<UMLNode, string> NodeNameChanged;
