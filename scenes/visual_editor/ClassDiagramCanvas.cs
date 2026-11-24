@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Text;
 using Godot;
 
-public partial class VisualEditor : Control
+public partial class ClassDiagramCanvas : Control
 {
 	public event Action<UMLNode, string> NodeNameChanged;
 
@@ -213,7 +213,7 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private readonly UMLLayoutMemory layoutMemory = new();
 
-	public VisualEditor()
+	public ClassDiagramCanvas()
 	{
 		relationshipLines = new RelationshipLines(node => GetRect(containers[node]));
 	}

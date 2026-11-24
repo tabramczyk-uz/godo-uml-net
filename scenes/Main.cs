@@ -101,7 +101,10 @@ public partial class Main : Control
 		codeEditor = GetNode<CodeEditor>("%CodeEditor");
 		codeEditor.CodeChanged += OnCodeChanged;
 
-		classDiagram = new ClassDiagramController(codeEditor, GetNode<VisualEditor>("%VisualEditor"));
+		classDiagram = new ClassDiagramController(
+			codeEditor,
+			GetNode<ClassDiagramCanvas>("%ClassDiagramCanvas")
+		);
 		classDiagram.ErrorReported += ShowErrorDialog;
 
 		document = new UMLDocument(codeEditor.Code);

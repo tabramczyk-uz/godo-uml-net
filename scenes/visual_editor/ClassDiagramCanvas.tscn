@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cnqa6ac58r558"]
 
-[ext_resource type="Script" uid="uid://biya6vf7y35j6" path="res://scenes/visual_editor/VisualEditor.cs" id="1_7vwpt"]
+[ext_resource type="Script" uid="uid://biya6vf7y35j6" path="res://scenes/visual_editor/ClassDiagramCanvas.cs" id="1_7vwpt"]
 [ext_resource type="Script" uid="uid://b2kkfkisx7mq3" path="res://scenes/visual_editor/CanvasCamera.cs" id="2_camera"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_m3nub"]
@@ -20,7 +20,7 @@ border_width_right = 1
 border_width_bottom = 1
 border_color = Color(0.352941, 0.6, 1, 0.8)
 
-[node name="VisualEditor" type="Panel" unique_id=525565316]
+[node name="ClassDiagramCanvas" type="Panel" unique_id=525565316]
 custom_minimum_size = Vector2(100, 100)
 clip_contents = true
 offset_right = 100.0

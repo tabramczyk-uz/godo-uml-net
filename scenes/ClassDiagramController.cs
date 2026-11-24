@@ -18,7 +18,7 @@ public class ClassDiagramController
 	public event Action<string, string> ErrorReported;
 
 	private readonly CodeEditor codeEditor;
-	private readonly VisualEditor canvas;
+	private readonly ClassDiagramCanvas canvas;
 
 	/// <summary>
 	/// The last diagram the code parsed into, which is the one on the canvas:
@@ -26,7 +26,7 @@ public class ClassDiagramController
 	/// </summary>
 	private UMLDiagram diagram = new();
 
-	public ClassDiagramController(CodeEditor codeEditor, VisualEditor canvas)
+	public ClassDiagramController(CodeEditor codeEditor, ClassDiagramCanvas canvas)
 	{
 		this.codeEditor = codeEditor;
 		this.canvas = canvas;
