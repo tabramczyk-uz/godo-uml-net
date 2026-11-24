@@ -81,6 +81,18 @@ public static partial class SequenceSyntax
 		return $"{GetKeyword(kind)} {name}";
 	}
 
+	/// <summary>Spells out a message line, with its <c>: label</c> when it has one.</summary>
+	public static string FormatMessage(
+		string fromName,
+		string toName,
+		SequenceMessageKind kind,
+		string label
+	)
+	{
+		string message = $"{fromName} {GetOperator(kind)} {toName}";
+		return label.Length == 0 ? message : $"{message} : {label}";
+	}
+
 	private static Dictionary<TValue, TKey> Invert<TKey, TValue>(Dictionary<TKey, TValue> table)
 	{
 		Dictionary<TValue, TKey> inverted = [];

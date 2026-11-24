@@ -179,6 +179,77 @@ public static class SequenceCodeWriter
 	}
 
 	/// <summary>
+	/// Writes a new message so it becomes the one at <paramref name="index"/>
+	/// in the diagram's messages: above the message now at that index, or below
+	/// the last one when <paramref name="index"/> is their count. When either
+	/// participant is declared further down, the declarations in between are
+	/// lifted above the new message, keeping their order.
+	/// </summary>
+	public static string InsertMessage(
+		string code,
+		SequenceDiagram diagram,
+		int index,
+		SequenceParticipant from,
+		SequenceParticipant to,
+		SequenceMessageKind kind,
+		string label = ""
+	)
+	{
+		if (index < 0 || index > diagram.Messages.Count)
+		{
+			return code;
+		}
+
+		string[] lines = code.Split('\n');
+		string message = SequenceSyntax.FormatMessage(from.Name, to.Name, kind, label);
+		return PlaceMessage(lines, diagram.Messages, index, from, to, message, -1) ?? code;
+	}
+
+	/// <summary>Removes the line the message was written on.</summary>
+	public static string RemoveMessage(string code, SequenceMessage message)
+	{
+		string[] lines = code.Split('\n');
+		int line = FindMessageLine(lines, message);
+		return line == -1 ? code : Rebuild(lines, [line], -1, []);
+	}
+
+	/// <summary>
+	/// Moves a message's line, comment and all, so it becomes the one at
+	/// <paramref name="newIndex"/> in the diagram's messages. Declarations are
+	/// lifted above it as in <see cref="InsertMessage"/>.
+	/// </summary>
+	public static string MoveMessage(
+		string code,
+		SequenceDiagram diagram,
+		SequenceMessage message,
+		int newIndex
+	)
+	{
+		int oldIndex = diagram.Messages.IndexOf(message);
+		if (
+			oldIndex == -1
+			|| newIndex == oldIndex
+			|| newIndex < 0
+			|| newIndex >= diagram.Messages.Count
+		)
+		{
+			return code;
+		}
+
+		string[] lines = code.Split('\n');
+		int line = FindMessageLine(lines, message);
+		if (line == -1)
+		{
+			return code;
+		}
+
+		var others = new List<SequenceMessage>(diagram.Messages);
+		others.RemoveAt(oldIndex);
+		return PlaceMessage(lines, others, newIndex, message.From, message.To, lines[line], line)
+			?? code;
+	}
+
+	/// <summary>
 	/// Joins the lines back up without the <paramref name="removed"/> ones and
 	/// with <paramref name="inserted"/> placed just before line
 	/// <paramref name="insertAt"/>, all numbered as in <paramref name="lines"/>.
@@ -219,6 +290,65 @@ public static class SequenceCodeWriter
 		return lines[^1].Length == 0 ? lines.Length - 1 : lines.Length;
 	}
 
+	/// <summary>
+	/// Puts <paramref name="messageLine"/> where it becomes the message at
+	/// <paramref name="index"/> among <paramref name="messages"/>, removing
+	/// <paramref name="oldLine"/> (-1 for none) in the same pass. Returns null
+	/// when a line it needs cannot be found.
+	/// </summary>
+	private static string PlaceMessage(
+		string[] lines,
+		List<SequenceMessage> messages,
+		int index,
+		SequenceParticipant from,
+		SequenceParticipant to,
+		string messageLine,
+		int oldLine
+	)
+	{
+		int insertAt;
+		if (index < messages.Count)
+		{
+			insertAt = FindMessageLine(lines, messages[index]);
+		}
+		else if (messages.Count > 0)
+		{
+			int lastLine = FindMessageLine(lines, messages[^1]);
+			insertAt = lastLine == -1 ? -1 : lastLine + 1;
+		}
+		else
+		{
+			insertAt = GetEndOfCode(lines);
+		}
+
+		int fromLine = FindDeclarationLine(lines, from);
+		int toLine = FindDeclarationLine(lines, to);
+		if (insertAt == -1 || fromLine == -1 || toLine == -1)
+		{
+			return null;
+		}
+
+		var removed = new HashSet<int>();
+		if (oldLine != -1)
+		{
+			removed.Add(oldLine);
+		}
+
+		var inserted = new List<string>();
+		int liftTo = Math.Max(fromLine, toLine);
+		for (int i = insertAt; i <= liftTo; i++)
+		{
+			if (TryMatchDeclaration(lines[i], out _))
+			{
+				removed.Add(i);
+				inserted.Add(lines[i]);
+			}
+		}
+
+		inserted.Add(messageLine);
+		return Rebuild(lines, removed, insertAt, inserted);
+	}
+
 	private static int FindDeclarationLine(string[] lines, SequenceParticipant participant)
 	{
 		if (IsDeclarationOf(lines, participant.SourceLine, participant))
@@ -243,6 +373,39 @@ public static class SequenceCodeWriter
 			&& line < lines.Length
 			&& TryMatchDeclaration(lines[line], out Match match)
 			&& match.Groups[2].Value == participant.Name;
+	}
+
+	/// <summary>
+	/// The message's line: the one it was parsed from if that still holds it,
+	/// otherwise the first line with the same sender, operator, receiver and label.
+	/// </summary>
+	private static int FindMessageLine(string[] lines, SequenceMessage message)
+	{
+		if (IsMessageLine(lines, message.SourceLine, message))
+		{
+			return message.SourceLine;
+		}
+
+		for (int i = 0; i < lines.Length; i++)
+		{
+			if (IsMessageLine(lines, i, message))
+			{
+				return i;
+			}
+		}
+
+		return -1;
+	}
+
+	private static bool IsMessageLine(string[] lines, int line, SequenceMessage message)
+	{
+		return line >= 0
+			&& line < lines.Length
+			&& TryMatchMessage(lines[line], out Match match)
+			&& match.Groups[1].Value == message.From.Name
+			&& match.Groups[2].Value == SequenceSyntax.GetOperator(message.Kind)
+			&& match.Groups[3].Value == message.To.Name
+			&& match.Groups[4].Value == message.Label;
 	}
 
 	/// <summary>

@@ -25,6 +25,14 @@ public class SequenceCodeWriterTests
 		return Parse(code).Participants.ConvertAll(p => p.Name);
 	}
 
+	private static List<string> Messages(string code)
+	{
+		return Parse(code)
+			.Messages.ConvertAll(m =>
+				SequenceSyntax.FormatMessage(m.From.Name, m.To.Name, m.Kind, m.Label)
+			);
+	}
+
 	private static SequenceParticipant Participant(SequenceDiagram diagram, string name)
 	{
 		return diagram.Participants.Find(p => p.Name == name);
@@ -215,6 +223,209 @@ public class SequenceCodeWriterTests
 			diagram.Participants[1],
 			newIndex
 		);
+
+		Assert.Equal(code, moved);
+	}
+
+	[Fact]
+	public void InsertsAMessageAboveTheOneAtItsIndex()
+	{
+		string code = Header + "participant A\nparticipant B\nA -> B : one\nB --> A : two";
+		SequenceDiagram diagram = Parse(code);
+
+		string inserted = SequenceCodeWriter.InsertMessage(
+			code,
+			diagram,
+			1,
+			Participant(diagram, "B"),
+			Participant(diagram, "B"),
+			SequenceMessageKind.Synchronous,
+			"think"
+		);
+
+		Assert.Equal(
+			Header + "participant A\nparticipant B\nA -> B : one\nB -> B : think\nB --> A : two",
+			inserted
+		);
+	}
+
+	[Fact]
+	public void InsertsAMessageAtTheEndBelowTheLastMessage()
+	{
+		string code = Header + "participant A\nparticipant B\nA -> B\n// the end\n";
+		SequenceDiagram diagram = Parse(code);
+
+		string inserted = SequenceCodeWriter.InsertMessage(
+			code,
+			diagram,
+			1,
+			Participant(diagram, "B"),
+			Participant(diagram, "A"),
+			SequenceMessageKind.Reply
+		);
+
+		Assert.Equal(
+			Header + "participant A\nparticipant B\nA -> B\nB --> A\n// the end\n",
+			inserted
+		);
+	}
+
+	[Fact]
+	public void InsertsTheFirstMessageAtTheEnd()
+	{
+		string code = Header + "participant A\nparticipant B\n";
+		SequenceDiagram diagram = Parse(code);
+
+		string inserted = SequenceCodeWriter.InsertMessage(
+			code,
+			diagram,
+			0,
+			diagram.Participants[0],
+			diagram.Participants[1],
+			SequenceMessageKind.Asynchronous,
+			"ping"
+		);
+
+		Assert.Equal(Header + "participant A\nparticipant B\nA ->> B : ping\n", inserted);
+	}
+
+	[Fact]
+	public void InsertingAboveADeclarationLiftsTheDeclarationsInBetween()
+	{
+		string code =
+			Header + "participant A\nA -> A\nparticipant B\nA -> B\nparticipant C\nB -> C";
+		SequenceDiagram diagram = Parse(code);
+
+		string inserted = SequenceCodeWriter.InsertMessage(
+			code,
+			diagram,
+			0,
+			Participant(diagram, "A"),
+			Participant(diagram, "C"),
+			SequenceMessageKind.Synchronous
+		);
+
+		Assert.Equal(
+			Header + "participant A\nparticipant B\nparticipant C\nA -> C\nA -> A\nA -> B\nB -> C",
+			inserted
+		);
+		Assert.Equal(["A", "B", "C"], ParticipantNames(inserted));
+	}
+
+	[Theory]
+	[InlineData(-1)]
+	[InlineData(2)]
+	public void InsertingAtAMissingIndexChangesNothing(int index)
+	{
+		string code = Header + "participant A\nA -> A";
+		SequenceDiagram diagram = Parse(code);
+
+		string inserted = SequenceCodeWriter.InsertMessage(
+			code,
+			diagram,
+			index,
+			diagram.Participants[0],
+			diagram.Participants[0],
+			SequenceMessageKind.Synchronous
+		);
+
+		Assert.Equal(code, inserted);
+	}
+
+	[Fact]
+	public void RemovesTheLineTheMessageWasParsedFrom()
+	{
+		string code = Header + "participant A\nparticipant B\nA -> B\nA -> B // second\nB --> A";
+		SequenceDiagram diagram = Parse(code);
+
+		string removed = SequenceCodeWriter.RemoveMessage(code, diagram.Messages[0]);
+
+		Assert.Equal(Header + "participant A\nparticipant B\nA -> B // second\nB --> A", removed);
+	}
+
+	[Fact]
+	public void FindsAMessageByItsContentWhenItsSourceLineIsStale()
+	{
+		SequenceDiagram diagram = Parse(
+			Header + "participant A\nparticipant B\nA -> B : x\nB --> A"
+		);
+		string code = Header + "participant A\nparticipant B\n\nA -> B : x\nB --> A";
+
+		string removed = SequenceCodeWriter.RemoveMessage(code, diagram.Messages[0]);
+
+		Assert.Equal(Header + "participant A\nparticipant B\n\nB --> A", removed);
+	}
+
+	[Fact]
+	public void RemovingAMessageThatIsNotThereChangesNothing()
+	{
+		SequenceDiagram diagram = Parse(Header + "participant A\nA -> A : x");
+		string code = Header + "participant A\nA -> A : y";
+
+		Assert.Equal(code, SequenceCodeWriter.RemoveMessage(code, diagram.Messages[0]));
+	}
+
+	[Fact]
+	public void MovesAMessageDownWithItsComment()
+	{
+		string code =
+			Header
+			+ "participant A\nparticipant B\nA -> B : one // why\nB --> A : two\nA -> A : three";
+		SequenceDiagram diagram = Parse(code);
+
+		string moved = SequenceCodeWriter.MoveMessage(code, diagram, diagram.Messages[0], 1);
+
+		Assert.Equal(
+			Header
+				+ "participant A\nparticipant B\nB --> A : two\nA -> B : one // why\nA -> A : three",
+			moved
+		);
+	}
+
+	[Fact]
+	public void MovesAMessageToTheEnd()
+	{
+		string code = Header + "participant A\nA -> A : one\nA -> A : two\n// the end";
+		SequenceDiagram diagram = Parse(code);
+
+		string moved = SequenceCodeWriter.MoveMessage(code, diagram, diagram.Messages[0], 1);
+
+		Assert.Equal(Header + "participant A\nA -> A : two\nA -> A : one\n// the end", moved);
+	}
+
+	[Fact]
+	public void MovesAMessageUp()
+	{
+		string code = Header + "participant A\nparticipant B\nA -> B : one\n\nB --> A : two";
+		SequenceDiagram diagram = Parse(code);
+
+		string moved = SequenceCodeWriter.MoveMessage(code, diagram, diagram.Messages[1], 0);
+
+		Assert.Equal(Header + "participant A\nparticipant B\nB --> A : two\nA -> B : one\n", moved);
+	}
+
+	[Fact]
+	public void MovingAMessageAboveADeclarationItNeedsLiftsTheDeclaration()
+	{
+		string code = Header + "participant A\nparticipant B\nA -> B\nparticipant C\nA -> C";
+		SequenceDiagram diagram = Parse(code);
+
+		string moved = SequenceCodeWriter.MoveMessage(code, diagram, diagram.Messages[1], 0);
+
+		Assert.Equal(Header + "participant A\nparticipant B\nparticipant C\nA -> C\nA -> B", moved);
+		Assert.Equal(["A -> C", "A -> B"], Messages(moved));
+	}
+
+	[Theory]
+	[InlineData(0)]
+	[InlineData(-1)]
+	[InlineData(2)]
+	public void MovingAMessageToItsOwnOrAMissingIndexChangesNothing(int newIndex)
+	{
+		string code = Header + "participant A\nA -> A : one\nA -> A : two";
+		SequenceDiagram diagram = Parse(code);
+
+		string moved = SequenceCodeWriter.MoveMessage(code, diagram, diagram.Messages[0], newIndex);
 
 		Assert.Equal(code, moved);
 	}
