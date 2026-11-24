@@ -1,0 +1,64 @@
+[gd_scene format=3 uid="uid://dcv4kc8apir8a"]
+
+[ext_resource type="Script" uid="uid://imybenlcukaf" path="res://scenes/sequence_editor/SequenceDiagramCanvas.cs" id="1_seqcv"]
+[ext_resource type="Script" uid="uid://b2kkfkisx7mq3" path="res://scenes/visual_editor/CanvasCamera.cs" id="2_camera"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_m3nub"]
+content_margin_left = 4.0
+content_margin_top = 2.0
+content_margin_right = 4.0
+content_margin_bottom = 2.0
+bg_color = Color(0.141176, 0.141176, 0.141176, 1)
+border_width_bottom = 2
+border_color = Color(0.623529, 0.623529, 0.623529, 1)
+
+[node name="SequenceDiagramCanvas" type="Panel" unique_id=1405839212]
+custom_minimum_size = Vector2(100, 100)
+clip_contents = true
+offset_right = 100.0
+offset_bottom = 100.0
+size_flags_horizontal = 3
+focus_mode = 1
+script = ExtResource("1_seqcv")
+
+[node name="World" type="Control" parent="." unique_id=1810462291]
+unique_name_in_owner = true
+anchors_preset = 0
+mouse_filter = 2
+script = ExtResource("2_camera")
+
+[node name="GrayOut" type="ColorRect" parent="." unique_id=393775104]
+unique_name_in_owner = true
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0.392157)
+
+[node name="MenuPanel" type="PanelContainer" parent="." unique_id=1679221310]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_m3nub")
+
+[node name="MenuRow" type="HBoxContainer" parent="MenuPanel" unique_id=1196402668]
+layout_mode = 2
+
+[node name="MenuBar" type="MenuBar" parent="MenuPanel/MenuRow" unique_id=287201925]
+unique_name_in_owner = true
+layout_mode = 2
+flat = true
+
+[node name="View" type="PopupMenu" parent="MenuPanel/MenuRow/MenuBar" unique_id=1977253460]
+unique_name_in_owner = true
+item_count = 4
+item_0/text = "Zoom In"
+item_0/id = 0
+item_1/text = "Zoom Out"
+item_1/id = 1
+item_2/text = "Reset Zoom"
+item_2/id = 2
+item_3/text = "Frame Diagram"
+item_3/id = 3
