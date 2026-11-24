@@ -118,4 +118,16 @@ public class UMLRelationshipTypeTests
 		Assert.Equal(type, readType);
 		Assert.Equal(direction, readDirection);
 	}
+
+	[Theory]
+	[InlineData(UMLRelationshipType.Generalization, true)]
+	[InlineData(UMLRelationshipType.Realization, true)]
+	[InlineData(UMLRelationshipType.Aggregation, true)]
+	[InlineData(UMLRelationshipType.Composition, true)]
+	[InlineData(UMLRelationshipType.Association, false)]
+	[InlineData(UMLRelationshipType.Dependency, false)]
+	public void KnowsWhichRelationshipsAreHierarchical(UMLRelationshipType type, bool expected)
+	{
+		Assert.Equal(expected, type.IsHierarchical());
+	}
 }

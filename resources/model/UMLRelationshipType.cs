@@ -69,6 +69,21 @@ public static class UMLRelationshipTypeExtensions
 	}
 
 	/// <summary>
+	/// Whether one end of the relationship is the parent or whole of the other:
+	/// generalization, realization, aggregation and composition. The decorated
+	/// end is that parent or whole, which is what lets the auto-layout put it
+	/// above the other node.
+	/// </summary>
+	public static bool IsHierarchical(this UMLRelationshipType type)
+	{
+		return type
+			is UMLRelationshipType.Generalization
+				or UMLRelationshipType.Realization
+				or UMLRelationshipType.Aggregation
+				or UMLRelationshipType.Composition;
+	}
+
+	/// <summary>
 	/// Reads the relationship a line draws from the endings at its two ends and
 	/// whether it is dashed: the inverse of <see cref="GetEnding"/> and
 	/// <see cref="IsDashed"/>. The strongest ending decides the type; the ends

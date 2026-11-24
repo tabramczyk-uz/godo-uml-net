@@ -224,20 +224,10 @@ public static class UMLAutoLayout
 	/// </summary>
 	public static (UMLNode Above, UMLNode Below) Orient(UMLRelationship relationship)
 	{
-		return PointsAtParent(relationship)
+		bool parentIsTo = relationship.Type.IsHierarchical() && relationship.Direction.DecoratesTo();
+		return parentIsTo
 			? (relationship.To, relationship.From)
 			: (relationship.From, relationship.To);
-	}
-
-	private static bool PointsAtParent(UMLRelationship relationship)
-	{
-		bool marksContainer = relationship.Type
-			is UMLRelationshipType.Generalization
-				or UMLRelationshipType.Realization
-				or UMLRelationshipType.Aggregation
-				or UMLRelationshipType.Composition;
-
-		return marksContainer && relationship.Direction.DecoratesTo();
 	}
 
 	/// <summary>
