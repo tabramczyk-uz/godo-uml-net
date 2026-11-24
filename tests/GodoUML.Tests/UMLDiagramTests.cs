@@ -22,6 +22,8 @@ public class UMLDiagramTests
 		);
 	}
 
+	// [Theory] runs the test once per [InlineData] row, passing the row's values
+	// as the arguments.
 	[Theory]
 	[InlineData("Client")]
 	[InlineData("Customer")]

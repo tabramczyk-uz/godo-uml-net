@@ -4,6 +4,8 @@ namespace GodoUML.Tests;
 
 public class UMLSyntaxTests
 {
+	// [Theory] runs the test once per [InlineData] row, passing the row's values
+	// as the arguments.
 	[Theory]
 	[InlineData("Customer")]
 	[InlineData("_internal")]

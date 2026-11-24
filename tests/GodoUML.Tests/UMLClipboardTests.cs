@@ -104,6 +104,8 @@ public class UMLClipboardTests
 		Assert.NotEqual(pasted.FindNode("A").Position, pasted.FindNode("B").Position);
 	}
 
+	// [Theory] runs the test once per [InlineData] row, passing the row's values
+	// as the arguments.
 	[Theory]
 	[InlineData("")]
 	[InlineData("   \n")]

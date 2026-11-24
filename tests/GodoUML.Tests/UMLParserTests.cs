@@ -32,6 +32,8 @@ public class UMLParserTests
 		Assert.Empty(diagram.Relationships);
 	}
 
+	// [Theory] runs the test once per [InlineData] row, passing the row's values
+	// as the arguments.
 	[Theory]
 	[InlineData("node Plain", UMLNodeType.Node)]
 	[InlineData("class Account", UMLNodeType.Class)]

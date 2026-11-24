@@ -5,6 +5,8 @@ namespace GodoUML.Tests;
 
 public class UMLFileFormatTests
 {
+	// [Theory] runs the test once per [InlineData] row, passing the row's values
+	// as the arguments.
 	[Theory]
 	[InlineData(Error.FileNotFound, "The file or its folder does not exist.")]
 	[InlineData(Error.FileNoPermission, "You do not have permission to access it.")]

@@ -61,6 +61,8 @@ public class PlantUMLExporterTests
 		Assert.DoesNotContain("{", plantUml);
 	}
 
+	// [Theory] runs the test once per [InlineData] row, passing the row's values
+	// as the arguments.
 	[Theory]
 	[InlineData("A --> B", "A --> B")]
 	[InlineData("A - B", "A -- B")]
