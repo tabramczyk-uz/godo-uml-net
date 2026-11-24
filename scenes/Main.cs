@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Godot;
 
 public partial class Main : Control
@@ -27,7 +26,7 @@ public partial class Main : Control
 	private const string CopiedText = "Copied";
 
 	private CodeEditor codeEditor;
-	private VisualEditor visualEditor;
+	private ClassDiagramController classDiagram;
 	private PopupMenu fileMenu;
 	private FileDialog openDialog;
 	private FileDialog saveDialog;
@@ -47,12 +46,6 @@ public partial class Main : Control
 	private bool skippedLinesShown = false;
 
 	private UMLDocument document;
-
-	/// <summary>
-	/// The last diagram the code parsed into, which is the one on the canvas:
-	/// a failed parse leaves it in place, grayed out.
-	/// </summary>
-	private UMLDiagram diagram = new();
 
 	/// <summary>
 	/// What to do once the unsaved changes are saved or discarded, while the
@@ -108,17 +101,8 @@ public partial class Main : Control
 		codeEditor = GetNode<CodeEditor>("%CodeEditor");
 		codeEditor.CodeChanged += OnCodeChanged;
 
-		visualEditor = GetNode<VisualEditor>("%VisualEditor");
-		visualEditor.NodeNameChanged += OnNodeNameChanged;
-		visualEditor.NodesMoved += OnNodesMoved;
-		visualEditor.NodeAdded += OnNodeAdded;
-		visualEditor.RelationshipAdded += OnRelationshipAdded;
-		visualEditor.RelationshipRemoved += OnRelationshipRemoved;
-		visualEditor.NodesRemoved += OnNodesRemoved;
-		visualEditor.UndoRequested += codeEditor.Undo;
-		visualEditor.RedoRequested += codeEditor.Redo;
-		visualEditor.NodesPasted += OnNodesPasted;
-		visualEditor.NodePositionsReset += OnNodePositionsReset;
+		classDiagram = new ClassDiagramController(codeEditor, GetNode<VisualEditor>("%VisualEditor"));
+		classDiagram.ErrorReported += ShowErrorDialog;
 
 		document = new UMLDocument(codeEditor.Code);
 		UpdateTitle();
@@ -274,9 +258,7 @@ public partial class Main : Control
 	/// </summary>
 	private void ReplaceDiagram(string code)
 	{
-		visualEditor.ForgetLayout();
-		codeEditor.LoadCode(code);
-		visualEditor.FrameDiagram();
+		LoadCode(code);
 		document = new UMLDocument();
 		saveDialog.CurrentFile = string.Empty;
 		UpdateTitle();
@@ -359,14 +341,21 @@ public partial class Main : Control
 			return;
 		}
 
-		string code = UMLFileFormat.NormalizeLineEndings(file.GetAsText());
-
-		visualEditor.ForgetLayout();
-		codeEditor.LoadCode(code);
-		visualEditor.FrameDiagram();
+		LoadCode(UMLFileFormat.NormalizeLineEndings(file.GetAsText()));
 		document.MarkSaved(path, codeEditor.Code);
 		RememberFile(path);
 		UpdateTitle();
+	}
+
+	/// <summary>
+	/// Puts <paramref name="code"/> in the editor in place of the old diagram,
+	/// laid out afresh and framed on the canvas.
+	/// </summary>
+	private void LoadCode(string code)
+	{
+		classDiagram.ForgetLayout();
+		codeEditor.LoadCode(code);
+		classDiagram.FrameDiagram();
 	}
 
 	/// <summary>
@@ -448,85 +437,6 @@ public partial class Main : Control
 	private void OnCodeChanged(string code)
 	{
 		UpdateTitle();
-
-		UMLParseResult result = UMLParser.Parse(code);
-		if (result.IsSuccess)
-		{
-			codeEditor.DismissError();
-			UMLAutoLayout.ApplyToUnpositioned(result.Diagram);
-			diagram = result.Diagram;
-		}
-		else
-		{
-			codeEditor.ShowError(result.ErrorMessage, result.ErrorLineNumber);
-		}
-
-		visualEditor.RenderDiagram(result.Diagram);
-	}
-
-	private void OnNodeNameChanged(UMLNode node, string newName)
-	{
-		string problem = diagram.DescribeRenameProblem(node, newName);
-		if (problem == null)
-		{
-			codeEditor.ApplyEdit(UMLCodeWriter.RenameNode(codeEditor.Code, node, newName));
-		}
-		else
-		{
-			ShowErrorDialog("Invalid Name", $"{node.Name} was not renamed.\n{problem}");
-		}
-	}
-
-	/// <summary>
-	/// Writes where the moved nodes now sit, all in one edit, so the code is
-	/// parsed once, since each parse rebuilds every node on the canvas.
-	/// </summary>
-	private void OnNodesMoved(IReadOnlyDictionary<UMLNode, Vector2> positions)
-	{
-		codeEditor.ApplyEdit(UMLCodeWriter.SetNodePositions(codeEditor.Code, positions));
-	}
-
-	/// <summary>
-	/// Deletes the nodes' position lines in one edit, so the layout places
-	/// them again, and the code is parsed once.
-	/// </summary>
-	private void OnNodePositionsReset(IReadOnlyList<UMLNode> nodes)
-	{
-		codeEditor.ApplyEdit(UMLCodeWriter.RemoveNodePositions(codeEditor.Code, nodes));
-	}
-
-	private void OnNodeAdded(UMLNodeType type, string name, Vector2 position)
-	{
-		codeEditor.ApplyEdit(UMLCodeWriter.AddNode(codeEditor.Code, type, name, position));
-	}
-
-	/// <summary>Appends the pasted nodes' code in one edit.</summary>
-	private void OnNodesPasted(string block)
-	{
-		codeEditor.ApplyEdit(UMLCodeWriter.AppendBlock(codeEditor.Code, block));
-	}
-
-	private void OnRelationshipAdded(
-		UMLNode from,
-		UMLNode to,
-		UMLRelationshipType type,
-		UMLRelationshipDirection direction
-	)
-	{
-		codeEditor.ApplyEdit(UMLCodeWriter.AddRelationship(codeEditor.Code, from, to, type, direction));
-	}
-
-	private void OnRelationshipRemoved(UMLRelationship relationship)
-	{
-		codeEditor.ApplyEdit(UMLCodeWriter.RemoveRelationship(codeEditor.Code, relationship));
-	}
-
-	/// <summary>
-	/// Deletes the nodes, and every relationship touching them, in one edit,
-	/// so the code is parsed once.
-	/// </summary>
-	private void OnNodesRemoved(IReadOnlyList<UMLNode> nodes)
-	{
-		codeEditor.ApplyEdit(UMLCodeWriter.RemoveNodes(codeEditor.Code, nodes));
+		classDiagram.ShowCode(code);
 	}
 }
