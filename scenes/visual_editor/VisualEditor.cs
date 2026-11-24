@@ -384,23 +384,7 @@ public partial class VisualEditor : Control
 
 		if (@event is InputEventMouseMotion motionEvent)
 		{
-			pointerPosition = ToLocal(motionEvent.Position);
-			if (mode == CanvasMode.DeletingConnection)
-			{
-				UMLRelationship hovered = GetCanvasRect().HasPoint(pointerPosition)
-					? GetRelationshipAt(pointerPosition)
-					: null;
-				if (hovered != hoveredRelationship)
-				{
-					hoveredRelationship = hovered;
-					QueueRedraw();
-				}
-			}
-			else if (connectionSource != null)
-			{
-				QueueRedraw();
-			}
-
+			TrackPointer(motionEvent.Position);
 			return false;
 		}
 
@@ -436,6 +420,30 @@ public partial class VisualEditor : Control
 		}
 
 		return true;
+	}
+
+	/// <summary>
+	/// Follows the mouse in the click-to-pick modes: highlights the line a
+	/// click would delete, or redraws the pending relationship's preview.
+	/// </summary>
+	private void TrackPointer(Vector2 eventPosition)
+	{
+		pointerPosition = ToLocal(eventPosition);
+		if (mode == CanvasMode.DeletingConnection)
+		{
+			UMLRelationship hovered = GetCanvasRect().HasPoint(pointerPosition)
+				? GetRelationshipAt(pointerPosition)
+				: null;
+			if (hovered != hoveredRelationship)
+			{
+				hoveredRelationship = hovered;
+				QueueRedraw();
+			}
+		}
+		else if (connectionSource != null)
+		{
+			QueueRedraw();
+		}
 	}
 
 	/// <summary>
@@ -737,30 +745,8 @@ public partial class VisualEditor : Control
 	{
 		// Only while the canvas has focus, so Delete still edits text in the
 		// code editor and in the rename box.
-		if (@event.IsActionPressed("Delete") && HasFocus())
+		if (HasFocus() && HandleSelectionShortcut(@event))
 		{
-			DeleteSelection();
-			GetViewport().SetInputAsHandled();
-			return;
-		}
-
-		if (@event.IsActionPressed("ui_text_select_all", allowEcho: false, exactMatch: true) && HasFocus())
-		{
-			SelectAll();
-			GetViewport().SetInputAsHandled();
-			return;
-		}
-
-		if (@event.IsActionPressed("ui_copy", allowEcho: false, exactMatch: true) && HasFocus())
-		{
-			CopySelection();
-			GetViewport().SetInputAsHandled();
-			return;
-		}
-
-		if (@event.IsActionPressed("ui_paste", allowEcho: false, exactMatch: true) && HasFocus())
-		{
-			Paste();
 			GetViewport().SetInputAsHandled();
 			return;
 		}
@@ -787,11 +773,51 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left } mouseEvent)
+		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left } leftClick)
 		{
-			return;
+			HandleSelectionClick(leftClick);
+		}
+	}
+
+	/// <summary>
+	/// Handles Delete, Select All, Copy and Paste on the selection. Returns
+	/// whether the event was one of them.
+	/// </summary>
+	private bool HandleSelectionShortcut(InputEvent @event)
+	{
+		if (@event.IsActionPressed("Delete"))
+		{
+			DeleteSelection();
+			return true;
 		}
 
+		if (@event.IsActionPressed("ui_text_select_all", allowEcho: false, exactMatch: true))
+		{
+			SelectAll();
+			return true;
+		}
+
+		if (@event.IsActionPressed("ui_copy", allowEcho: false, exactMatch: true))
+		{
+			CopySelection();
+			return true;
+		}
+
+		if (@event.IsActionPressed("ui_paste", allowEcho: false, exactMatch: true))
+		{
+			Paste();
+			return true;
+		}
+
+		return false;
+	}
+
+	/// <summary>
+	/// Takes a left press or release: a press selects the node under it, or
+	/// starts a box on empty canvas, and a release finishes the box.
+	/// </summary>
+	private void HandleSelectionClick(InputEventMouseButton mouseEvent)
+	{
 		if (!mouseEvent.Pressed)
 		{
 			if (boxStart != null)
