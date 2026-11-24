@@ -1,7 +1,7 @@
 /// <summary>
 /// What a message does. Only a synchronous message opens an activation, and only
-/// a reply closes one. The operator that writes each kind lives in
-/// <see cref="SequenceSyntax"/>.
+/// a reply closes one (see <see cref="SequenceActivations"/>). The operator that
+/// writes each kind lives in <see cref="SequenceSyntax"/>.
 /// </summary>
 public enum SequenceMessageKind
 {

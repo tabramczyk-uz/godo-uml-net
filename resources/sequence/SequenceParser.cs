@@ -36,6 +36,7 @@ public sealed class SequenceParser
 			}
 		}
 
+		diagram.Activations.AddRange(SequenceActivations.Derive(diagram.Messages));
 		return SequenceParseResult.Success(diagram);
 	}
 

@@ -9,4 +9,10 @@ public sealed class SequenceDiagram
 {
 	public List<SequenceParticipant> Participants { get; } = [];
 	public List<SequenceMessage> Messages { get; } = [];
+
+	/// <summary>
+	/// The activations the messages imply, filled in by the parser from
+	/// <see cref="SequenceActivations.Derive"/>. They are never written in the source.
+	/// </summary>
+	public List<SequenceActivation> Activations { get; } = [];
 }
