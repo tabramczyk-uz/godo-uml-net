@@ -72,19 +72,27 @@ public class SequenceDiagramDrawing
 	/// <summary>
 	/// Draws a message's arrow along <paramref name="path"/> with the head its
 	/// kind calls for at the last point, and its label in
-	/// <paramref name="labelRect"/>.
+	/// <paramref name="labelRect"/>, everything shifted by
+	/// <paramref name="offset"/>.
 	/// </summary>
 	public void DrawMessage(
 		SequenceMessage message,
 		IReadOnlyList<Vector2> path,
 		Rect2 labelRect,
+		Vector2 offset,
 		Color color
 	)
 	{
-		DrawArrow(message.Kind, [.. path], color);
+		Vector2[] points = new Vector2[path.Count];
+		for (int i = 0; i < path.Count; i++)
+		{
+			points[i] = path[i] + offset;
+		}
+
+		DrawArrow(message.Kind, points, color);
 		if (message.Label.Length > 0)
 		{
-			Vector2 baseline = labelRect.Position + Vector2.Down * font.GetAscent(fontSize);
+			Vector2 baseline = labelRect.Position + offset + Vector2.Down * font.GetAscent(fontSize);
 			canvas.DrawString(font, baseline, message.Label, HorizontalAlignment.Left, -1, fontSize, color);
 		}
 	}

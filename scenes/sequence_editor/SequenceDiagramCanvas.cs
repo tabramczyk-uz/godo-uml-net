@@ -25,6 +25,12 @@ public partial class SequenceDiagramCanvas : Control
 	public event Action<SequenceParticipant> ParticipantRemoved;
 
 	/// <summary>
+	/// Raised when a participant has been dragged sideways, with the index,
+	/// counting from the left, it is to take.
+	/// </summary>
+	public event Action<SequenceParticipant, int> ParticipantMoved;
+
+	/// <summary>
 	/// Raised when the Message menu has had both lifelines clicked, with the
 	/// sender, the receiver, the kind and the index, counting from the top,
 	/// the new message is to take.
@@ -33,6 +39,12 @@ public partial class SequenceDiagramCanvas : Control
 
 	/// <summary>Raised when a message is to be deleted.</summary>
 	public event Action<SequenceMessage> MessageRemoved;
+
+	/// <summary>
+	/// Raised when a message has been dragged up or down, with the index,
+	/// counting from the top, it is to take.
+	/// </summary>
+	public event Action<SequenceMessage, int> MessageMoved;
 
 	/// <summary>
 	/// Raised for Undo and Redo pressed on the canvas. Every canvas edit is an
@@ -62,7 +74,7 @@ public partial class SequenceDiagramCanvas : Control
 	/// <summary>What a left click on the canvas does.</summary>
 	private enum CanvasMode
 	{
-		/// <summary>Selects a participant or a message.</summary>
+		/// <summary>Selects a participant or a message, and drags it.</summary>
 		Normal,
 
 		/// <summary>Picks the sender's lifeline, then the receiver's, of a new message.</summary>
@@ -80,6 +92,12 @@ public partial class SequenceDiagramCanvas : Control
 	/// to pick it for a new message.
 	/// </summary>
 	private const float LifelinePickDistance = 12.0f;
+
+	/// <summary>
+	/// How far, in screen pixels, the mouse must move with the button held
+	/// before a press on a participant or message counts as a drag.
+	/// </summary>
+	private const float DragThreshold = 4.0f;
 
 	/// <summary>How far the selection frame stands off a participant's head.</summary>
 	private const float SelectionMargin = 4.0f;
@@ -135,6 +153,27 @@ public partial class SequenceDiagramCanvas : Control
 	private Vector2 pointerPosition;
 
 	/// <summary>
+	/// The participant (by index) pressed on and maybe being dragged, or -1.
+	/// At most one of this and <see cref="pressedMessage"/> is set.
+	/// </summary>
+	private int pressedParticipant = -1;
+
+	/// <summary>The message (by index) pressed on and maybe being dragged, or -1.</summary>
+	private int pressedMessage = -1;
+
+	/// <summary>Where the press started, in the canvas's own coordinates.</summary>
+	private Vector2 pressPosition;
+
+	/// <summary>Where the press started, in diagram coordinates, which panning does not move.</summary>
+	private Vector2 pressDiagramPoint;
+
+	/// <summary>Whether the press has moved far enough to be a drag.</summary>
+	private bool isDragging = false;
+
+	/// <summary>How far the pressed participant or message has been dragged, in diagram coordinates.</summary>
+	private Vector2 dragOffset;
+
+	/// <summary>
 	/// The diagram the open context menu was built for, and what in it the
 	/// menu acts on. A re-parse while the menu is open makes it stale.
 	/// </summary>
@@ -185,6 +224,7 @@ public partial class SequenceDiagramCanvas : Control
 		isDiagramValid = newDiagram != null;
 		grayOut.Visible = !isDiagramValid;
 		EndMode();
+		CancelPress();
 		SetMenuEnabled(addMenu, isDiagramValid);
 		SetMenuEnabled(messageMenu, isDiagramValid && newDiagram.Participants.Count > 0);
 
@@ -270,6 +310,7 @@ public partial class SequenceDiagramCanvas : Control
 		}
 
 		messageKind = (SequenceMessageKind)id;
+		CancelPress();
 		mode = CanvasMode.AddingMessage;
 		messageSender = -1;
 		hoveredLifeline = -1;
@@ -336,25 +377,39 @@ public partial class SequenceDiagramCanvas : Control
 		StyleBoxFlat box = GetThemeStylebox("panel", "PanelContainer") as StyleBoxFlat;
 		SequenceDiagramDrawing drawing = new(this, box?.BgColor ?? BackgroundColor, box?.BorderColor ?? Colors.White);
 
+		bool draggingParticipant = isDragging && pressedParticipant >= 0;
 		for (int i = 0; i < diagram.Participants.Count; i++)
 		{
-			DrawParticipant(drawing, i);
+			if (!draggingParticipant || i != pressedParticipant)
+			{
+				DrawParticipant(drawing, i);
+			}
 		}
 
 		for (int a = 0; a < diagram.Activations.Count; a++)
 		{
-			drawing.DrawActivation(layout.GetActivationRect(a));
+			Rect2 bar = layout.GetActivationRect(a);
+			bar.Position += GetDragShift(diagram.Participants.IndexOf(diagram.Activations[a].Participant));
+			drawing.DrawActivation(bar);
 		}
 
 		int selectedMessage = selection.GetMessageIndex(diagram);
 		for (int n = 0; n < diagram.Messages.Count; n++)
 		{
+			Vector2 offset = isDragging && n == pressedMessage ? new Vector2(0.0f, dragOffset.Y) : Vector2.Zero;
 			drawing.DrawMessage(
 				diagram.Messages[n],
 				layout.GetMessagePath(n),
 				layout.GetLabelRect(n),
-				n == selectedMessage ? SelectionColor : Colors.White
+				offset,
+				n == selectedMessage || (isDragging && n == pressedMessage) ? SelectionColor : Colors.White
 			);
+		}
+
+		// Last, so the dragged head passes over everything it is dragged across.
+		if (draggingParticipant)
+		{
+			DrawParticipant(drawing, pressedParticipant);
 		}
 
 		if (mode == CanvasMode.AddingMessage && messageSender >= 0)
@@ -371,6 +426,8 @@ public partial class SequenceDiagramCanvas : Control
 	private void DrawParticipant(SequenceDiagramDrawing drawing, int participantIndex)
 	{
 		Rect2 head = layout.GetHeadRect(participantIndex);
+		head.Position += GetDragShift(participantIndex);
+
 		bool picked =
 			mode == CanvasMode.AddingMessage
 			&& (participantIndex == hoveredLifeline || participantIndex == messageSender);
@@ -385,6 +442,14 @@ public partial class SequenceDiagramCanvas : Control
 		{
 			DrawRect(head.Grow(SelectionMargin), SelectionColor, false, 2.0f);
 		}
+	}
+
+	/// <summary>How far the participant is shown off its place while it is dragged.</summary>
+	private Vector2 GetDragShift(int participantIndex)
+	{
+		return isDragging && participantIndex == pressedParticipant
+			? new Vector2(dragOffset.X, 0.0f)
+			: Vector2.Zero;
 	}
 
 	/// <summary>
@@ -475,6 +540,10 @@ public partial class SequenceDiagramCanvas : Control
 		else if (mode == CanvasMode.AddingMessage)
 		{
 			MouseDefaultCursorShape = CursorShape.Cross;
+		}
+		else if (isDragging)
+		{
+			MouseDefaultCursorShape = pressedParticipant >= 0 ? CursorShape.Hsize : CursorShape.Vsize;
 		}
 		else
 		{
@@ -605,10 +674,10 @@ public partial class SequenceDiagramCanvas : Control
 	}
 
 	/// <summary>
-	/// Selects, renames and deletes. A press on a participant's head or on a
-	/// message selects it; a double-click on a head renames it; a press on
-	/// empty canvas, or Cancel, clears the selection, and Delete deletes it.
-	/// Returns whether the event was used up.
+	/// Selects, drags, renames and deletes. A press on a participant's head or
+	/// on a message selects it, and dragging it on moves it; a double-click on
+	/// a head renames it; a press on empty canvas, or Cancel, clears the
+	/// selection, and Delete deletes it. Returns whether the event was used up.
 	/// </summary>
 	private bool HandleEditInput(InputEvent @event)
 	{
@@ -622,14 +691,28 @@ public partial class SequenceDiagramCanvas : Control
 
 		if (@event.IsActionPressed("Cancel"))
 		{
-			ClearSelection();
+			if (pressedParticipant >= 0 || pressedMessage >= 0)
+			{
+				CancelPress();
+			}
+			else
+			{
+				ClearSelection();
+			}
+
 			return false;
 		}
 
 		switch (@event)
 		{
+			case InputEventMouseMotion:
+				UpdateDrag();
+				break;
 			case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press:
 				return OnLeftPress(press);
+			case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false }:
+				FinishDrag();
+				break;
 			case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true } rightClick:
 				OpenContextMenu(rightClick.Position);
 				break;
@@ -639,8 +722,8 @@ public partial class SequenceDiagramCanvas : Control
 	}
 
 	/// <summary>
-	/// Selects what was pressed on, or opens the rename box for a
-	/// double-click on a head. Returns whether the press is
+	/// Selects what was pressed on and gets ready to drag it, or opens the
+	/// rename box for a double-click on a head. Returns whether the press is
 	/// used up, which a rename must be: otherwise the canvas would take the
 	/// focus for the click, and the box closes when it loses the focus.
 	/// </summary>
@@ -662,10 +745,12 @@ public partial class SequenceDiagramCanvas : Control
 			QueueRedraw();
 			if (press.DoubleClick)
 			{
+				CancelPress();
 				StartRename(diagram.Participants[participant]);
 				return true;
 			}
 
+			StartPress(participant, -1, point);
 			return false;
 		}
 
@@ -673,12 +758,94 @@ public partial class SequenceDiagramCanvas : Control
 		if (message >= 0)
 		{
 			selection.SelectMessage(diagram, message);
+			StartPress(-1, message, point);
 			QueueRedraw();
 			return false;
 		}
 
 		ClearSelection();
 		return false;
+	}
+
+	private void StartPress(int participant, int message, Vector2 diagramPoint)
+	{
+		pressedParticipant = participant;
+		pressedMessage = message;
+		pressPosition = pointerPosition;
+		dragOffset = Vector2.Zero;
+		isDragging = false;
+		pressDiagramPoint = diagramPoint;
+	}
+
+	/// <summary>
+	/// Follows the mouse while a participant or message is held, once it has
+	/// moved far enough from the press to count as a drag.
+	/// </summary>
+	private void UpdateDrag()
+	{
+		if (pressedParticipant < 0 && pressedMessage < 0)
+		{
+			return;
+		}
+
+		if (!isDragging && pointerPosition.DistanceTo(pressPosition) < DragThreshold)
+		{
+			return;
+		}
+
+		isDragging = true;
+		dragOffset = world.ToDiagram(pointerPosition) - pressDiagramPoint;
+		QueueRedraw();
+	}
+
+	/// <summary>
+	/// Drops the dragged participant or message, moving it to the place among
+	/// the others where it was let go, if that differs from where it was.
+	/// </summary>
+	private void FinishDrag()
+	{
+		if (!isDragging)
+		{
+			CancelPress();
+			return;
+		}
+
+		int participant = pressedParticipant;
+		int message = pressedMessage;
+		Vector2 offset = dragOffset;
+		CancelPress();
+
+		if (participant >= 0)
+		{
+			int newIndex = layout.GetParticipantDropIndex(participant, layout.GetLifelineX(participant) + offset.X);
+			if (newIndex != participant)
+			{
+				ParticipantMoved?.Invoke(diagram.Participants[participant], newIndex);
+			}
+		}
+		else if (message >= 0)
+		{
+			int newIndex = layout.GetMessageDropIndex(message, layout.GetMessageY(message) + offset.Y);
+			if (newIndex != message)
+			{
+				selection.SelectMessageAfterEdit(newIndex);
+				MessageMoved?.Invoke(diagram.Messages[message], newIndex);
+			}
+		}
+	}
+
+	/// <summary>Lets go of the participant or message held, without moving it.</summary>
+	private void CancelPress()
+	{
+		if (isDragging)
+		{
+			QueueRedraw();
+		}
+
+		pressedParticipant = -1;
+		pressedMessage = -1;
+		isDragging = false;
+		dragOffset = Vector2.Zero;
 	}
 
 	private void ClearSelection()
@@ -698,6 +865,7 @@ public partial class SequenceDiagramCanvas : Control
 		// Cleared first: after the re-parse, a message written just like the
 		// deleted one would otherwise take over its selection.
 		selection.Clear();
+		CancelPress();
 		if (participant != null)
 		{
 			ParticipantRemoved?.Invoke(participant);
@@ -720,6 +888,7 @@ public partial class SequenceDiagramCanvas : Control
 		}
 
 		GrabFocus();
+		CancelPress();
 		Vector2 point = world.ToDiagram(pointerPosition);
 		int participant = layout.GetParticipantAt(point);
 		int message = participant < 0 ? layout.GetMessageAt(point, PickDistance / world.Scale.X) : -1;

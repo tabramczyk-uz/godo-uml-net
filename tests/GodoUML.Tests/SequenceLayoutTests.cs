@@ -258,4 +258,26 @@ public class SequenceLayoutTests
 
 		Assert.Equal(1, layout.GetInsertIndex(between));
 	}
+
+	[Fact]
+	public void DropsADraggedParticipantAmongTheOthersByItsX()
+	{
+		SequenceLayout layout = Lay("participant A\nparticipant B\nparticipant C\n");
+		float betweenBAndC = (layout.GetLifelineX(1) + layout.GetLifelineX(2)) / 2.0f;
+
+		Assert.Equal(1, layout.GetParticipantDropIndex(0, betweenBAndC));
+		Assert.Equal(2, layout.GetParticipantDropIndex(0, layout.GetLifelineX(2) + 1.0f));
+		Assert.Equal(0, layout.GetParticipantDropIndex(2, -100.0f));
+		Assert.Equal(1, layout.GetParticipantDropIndex(1, layout.GetLifelineX(1)));
+	}
+
+	[Fact]
+	public void DropsADraggedMessageAmongTheOthersByItsHeight()
+	{
+		SequenceLayout layout = Lay("participant A\nparticipant B\nA ->> B\nB ->> A\nA ->> B\n");
+
+		Assert.Equal(2, layout.GetMessageDropIndex(0, layout.GetMessageY(2) + 1.0f));
+		Assert.Equal(0, layout.GetMessageDropIndex(2, 0.0f));
+		Assert.Equal(1, layout.GetMessageDropIndex(1, layout.GetMessageY(1)));
+	}
 }

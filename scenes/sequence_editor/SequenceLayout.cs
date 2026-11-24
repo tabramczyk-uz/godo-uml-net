@@ -264,6 +264,44 @@ public class SequenceLayout
 	}
 
 	/// <summary>
+	/// The index the participant at <paramref name="participantIndex"/> takes
+	/// when its lifeline is dragged to <paramref name="x"/>: just right of every
+	/// other lifeline left of it.
+	/// </summary>
+	public int GetParticipantDropIndex(int participantIndex, float x)
+	{
+		int index = 0;
+		for (int i = 0; i < lifelineXs.Length; i++)
+		{
+			if (i != participantIndex && lifelineXs[i] < x)
+			{
+				index++;
+			}
+		}
+
+		return index;
+	}
+
+	/// <summary>
+	/// The index the message at <paramref name="messageIndex"/> takes when it
+	/// is dragged to height <paramref name="y"/>: just below every other
+	/// message that leaves above it.
+	/// </summary>
+	public int GetMessageDropIndex(int messageIndex, float y)
+	{
+		int index = 0;
+		for (int n = 0; n < messageYs.Length; n++)
+		{
+			if (n != messageIndex && messageYs[n] < y)
+			{
+				index++;
+			}
+		}
+
+		return index;
+	}
+
+	/// <summary>
 	/// Spaces the lifelines so neighbouring heads keep apart and every label
 	/// fits between the lifelines its message joins, or beside its
 	/// self-message's loop. Each lifeline is placed once, from the left, so a
