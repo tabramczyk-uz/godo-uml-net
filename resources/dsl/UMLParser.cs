@@ -47,6 +47,8 @@ public sealed class UMLParser
 		}
 
 		int indentation = UMLSyntax.GetIndentation(line);
+		// `text[a..b]` is the substring from index a up to, not including,
+		// b; a missing a or b means the start or the end.
 		string content = line[indentation..];
 
 		if (indentation == 0)

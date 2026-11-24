@@ -367,6 +367,9 @@ public sealed partial class PlantUMLImporter
 
 			// "Type name", the other order PlantUML accepts.
 			int separator = trimmed.LastIndexOf(' ');
+			// `text[a..b]` is the substring from index a up to, not including,
+			// b; a missing a or b means the start or the end, and `^n` counts
+			// n back from the end.
 			arguments.Add(
 				separator > 0
 					? new UMLMethodArgument(

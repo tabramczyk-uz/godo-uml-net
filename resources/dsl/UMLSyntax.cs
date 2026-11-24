@@ -290,6 +290,8 @@ public static partial class UMLSyntax
 			return;
 		}
 
+		// `text[a..b]` is the substring from index a up to, not including,
+		// b; a missing a or b means the start or the end.
 		code = line[..commentIndex];
 		comment = line[commentIndex..];
 	}

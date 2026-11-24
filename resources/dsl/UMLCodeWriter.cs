@@ -86,6 +86,8 @@ public static class UMLCodeWriter
 		if (i != -1)
 		{
 			UMLSyntax.SplitComment(lines[i], out string codePart, out string comment);
+			// `text[a..b]` is the substring from index a up to, not including,
+			// b; a missing a or b means the start or the end.
 			string separator = codePart[codePart.TrimEnd().Length..];
 			lines[i] = comment.Length == 0 ? positionLine : positionLine + separator + comment;
 			return string.Join("\n", lines);

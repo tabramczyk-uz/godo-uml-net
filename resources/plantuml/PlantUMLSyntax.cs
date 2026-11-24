@@ -203,6 +203,8 @@ public static partial class PlantUMLSyntax
 			return name;
 		}
 
+		// `^n` counts n back from the end: `name[^1]` is the last character,
+		// and the range `name[1..^1]` is everything but the first and last.
 		if (name[0] == '"' && name[^1] == '"')
 		{
 			return name[1..^1].Trim();
