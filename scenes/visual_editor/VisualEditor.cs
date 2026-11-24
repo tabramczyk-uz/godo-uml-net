@@ -180,11 +180,7 @@ public partial class VisualEditor : Control
 
 	private CanvasMode mode = CanvasMode.Normal;
 
-	/// <summary>
-	/// The selected nodes, by name, so a selection outlives the re-parse after
-	/// every edit, which rebuilds all the containers.
-	/// </summary>
-	private readonly HashSet<string> selectedNames = [];
+	private readonly NodeSelection selection = new();
 
 	/// <summary>
 	/// Where the box being drawn was started, in the editor's own coordinates,
@@ -937,7 +933,7 @@ public partial class VisualEditor : Control
 		UMLNodeContainer clicked = GetContainerAt(mouseEvent.Position);
 		if (clicked != null)
 		{
-			SelectOnPress(clicked.UmlNode.Name, mouseEvent.ShiftPressed);
+			SelectOnPress(clicked.UmlNode, mouseEvent.ShiftPressed);
 			return;
 		}
 
@@ -975,7 +971,7 @@ public partial class VisualEditor : Control
 	{
 		foreach (UMLNode node in containers.Keys)
 		{
-			selectedNames.Add(node.Name);
+			selection.Add(node);
 		}
 
 		QueueRedraw();
@@ -1004,7 +1000,7 @@ public partial class VisualEditor : Control
 		List<UMLNodeContainer> selected = [];
 		foreach ((UMLNode node, UMLNodeContainer container) in containers)
 		{
-			if (selectedNames.Contains(node.Name))
+			if (selection.Contains(node))
 			{
 				selected.Add(container);
 			}
@@ -1036,8 +1032,7 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		selectedNames.Clear();
-		selectedNames.UnionWith(names);
+		selection.Replace(names);
 		NodesPasted?.Invoke(code);
 	}
 
@@ -1063,7 +1058,7 @@ public partial class VisualEditor : Control
 			return;
 		}
 
-		SelectOnPress(clicked.UmlNode.Name, false);
+		SelectOnPress(clicked.UmlNode, false);
 		menuTargets = GetSelectionGroup(clicked);
 
 		bool single = menuTargets.Count == 1;
@@ -1138,22 +1133,16 @@ public partial class VisualEditor : Control
 		QueueRedraw();
 	}
 
-	private void SelectOnPress(string name, bool addToSelection)
+	private void SelectOnPress(UMLNode node, bool addToSelection)
 	{
-		if (!addToSelection && !selectedNames.Contains(name))
-		{
-			selectedNames.Clear();
-		}
-
-		selectedNames.Add(name);
+		selection.Press(node, addToSelection);
 		QueueRedraw();
 	}
 
 	private void ClearSelection()
 	{
-		if (selectedNames.Count > 0)
+		if (selection.Clear())
 		{
-			selectedNames.Clear();
 			QueueRedraw();
 		}
 	}
@@ -1192,7 +1181,7 @@ public partial class VisualEditor : Control
 		{
 			if (GetRect(container).Intersects(diagramBox, true))
 			{
-				selectedNames.Add(node.Name);
+				selection.Add(node);
 			}
 		}
 
@@ -1224,7 +1213,7 @@ public partial class VisualEditor : Control
 		}
 
 		diagram = newDiagram;
-		selectedNames.RemoveWhere(name => newDiagram.FindNode(name) == null);
+		selection.RemoveMissing(newDiagram);
 		connectMenu.SetItemDisabled(
 			connectMenu.GetItemIndex(DeleteConnectionId),
 			newDiagram.Relationships.Count == 0
@@ -1317,7 +1306,7 @@ public partial class VisualEditor : Control
 	/// </summary>
 	private List<UMLNodeContainer> GetSelectionGroup(UMLNodeContainer container)
 	{
-		if (!selectedNames.Contains(container.UmlNode.Name))
+		if (!selection.Contains(container.UmlNode))
 		{
 			return [container];
 		}
