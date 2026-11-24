@@ -43,6 +43,8 @@ public sealed partial class PlantUMLImporter
 		return new PlantUMLImporter().Run(source);
 	}
 
+	// [GeneratedRegex] has the compiler write the body of each of these partial
+	// methods, building the regex at compile time instead of at run time.
 	[GeneratedRegex(PositionHintPattern)]
 	private static partial Regex PositionHintRegex();
 

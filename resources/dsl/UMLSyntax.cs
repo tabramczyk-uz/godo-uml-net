@@ -108,6 +108,8 @@ public static partial class UMLSyntax
 		NodePropertyKeywords
 	);
 
+	// [GeneratedRegex] has the compiler write the body of each of these partial
+	// methods, building the regex at compile time instead of at run time.
 	[GeneratedRegex(IdentifierPattern)]
 	public static partial Regex IdentifierRegex();
 

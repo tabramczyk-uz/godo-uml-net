@@ -126,6 +126,8 @@ public static partial class PlantUMLSyntax
 		{ "queue", UMLNodeType.Node },
 	};
 
+	// [GeneratedRegex] has the compiler write the body of each of these partial
+	// methods, building the regex at compile time instead of at run time.
 	[GeneratedRegex(DeclarationPattern)]
 	public static partial Regex DeclarationRegex();
 
