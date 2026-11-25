@@ -105,6 +105,31 @@ public class UMLDiagramHeaderTests
 		Assert.Equal("diagram sequence", UMLDiagramHeader.Format(UMLDiagramKind.Sequence));
 	}
 
+	[Theory]
+	[InlineData(UMLDiagramKind.Class)]
+	[InlineData(UMLDiagramKind.Sequence)]
+	public void ANewDiagramIsReadAsTheKindItWasMadeFor(UMLDiagramKind kind)
+	{
+		Assert.Equal(kind, ReadOrFail(UMLDiagramHeader.NewDiagramCode(kind)).Kind);
+	}
+
+	[Fact]
+	public void ANewClassDiagramIsEmpty()
+	{
+		Assert.Equal(string.Empty, UMLDiagramHeader.NewDiagramCode(UMLDiagramKind.Class));
+	}
+
+	[Fact]
+	public void ANewSequenceDiagramIsJustItsHeader()
+	{
+		string code = UMLDiagramHeader.NewDiagramCode(UMLDiagramKind.Sequence);
+
+		Assert.Equal("diagram sequence", code);
+		SequenceParseResult result = SequenceParser.Parse(ReadOrFail(code).RemoveFrom(code));
+		Assert.True(result.IsSuccess, result.ErrorMessage);
+		Assert.Empty(result.Diagram.Participants);
+	}
+
 	[Fact]
 	public void RemoveFromBlanksOnlyTheHeaderLine()
 	{

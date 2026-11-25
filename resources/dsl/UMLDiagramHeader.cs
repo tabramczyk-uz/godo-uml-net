@@ -58,6 +58,16 @@ public sealed class UMLDiagramHeader
 	}
 
 	/// <summary>
+	/// The code a new, empty diagram of <paramref name="kind"/> starts with:
+	/// nothing for a class diagram, which needs no header, and otherwise just
+	/// the header line.
+	/// </summary>
+	public static string NewDiagramCode(UMLDiagramKind kind)
+	{
+		return kind == UMLDiagramKind.Class ? string.Empty : Format(kind);
+	}
+
+	/// <summary>
 	/// Reads the header from the first line that is not blank or only a
 	/// comment. That line is a header when its first word is
 	/// <see cref="Keyword"/> at the start of the line; otherwise the diagram has
