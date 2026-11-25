@@ -114,6 +114,8 @@ public class UMLAutoLayoutTests
 
 	private static float Row(int row) => UMLAutoLayout.Margin + (row * UMLAutoLayout.RowSpacing);
 
+	private static float Column(int column) => UMLAutoLayout.Margin + (column * UMLAutoLayout.ColumnSpacing);
+
 	[Fact]
 	public void StacksACycleOneNodePerRow()
 	{
@@ -152,7 +154,50 @@ public class UMLAutoLayoutTests
 		Assert.Equal(Row(1), diagram.FindNode("A").Position.Value.Y);
 		Assert.Equal(Row(2), diagram.FindNode("B").Position.Value.Y);
 		Assert.Equal(Row(3), diagram.FindNode("Bottom").Position.Value.Y);
-		Assert.Equal(Row(0), diagram.FindNode("Loose").Position.Value.Y);
+		Assert.Equal(Row(5), diagram.FindNode("Loose").Position.Value.Y);
+	}
+
+	private static string[] Classes(int count, string prefix = "C") =>
+		Enumerable.Range(1, count).Select(i => $"class {prefix}{i}").ToArray();
+
+	[Fact]
+	public void PutsManyUnconnectedNodesInAGridRatherThanOneRow()
+	{
+		UMLDiagram diagram = Build(Classes(10));
+
+		int columns = diagram.Nodes.Select(node => node.Position.Value.X).Distinct().Count();
+		int rows = diagram.Nodes.Select(node => node.Position.Value.Y).Distinct().Count();
+		Assert.True(columns >= UMLAutoLayout.MinimumGridColumns);
+		Assert.True(rows > 1);
+		Assert.Equal(10, diagram.Nodes.Select(node => node.Position.Value).Distinct().Count());
+	}
+
+	[Fact]
+	public void FillsTheUnconnectedGridRowByRowInDeclarationOrder()
+	{
+		UMLDiagram diagram = Build(Classes(6));
+
+		Assert.Equal(new Vector2(Column(0), Row(0)), diagram.FindNode("C1").Position);
+		Assert.Equal(new Vector2(Column(3), Row(0)), diagram.FindNode("C4").Position);
+		Assert.Equal(new Vector2(Column(0), Row(1)), diagram.FindNode("C5").Position);
+	}
+
+	[Fact]
+	public void PutsUnconnectedNodesBelowEverythingElse()
+	{
+		UMLDiagram diagram = Build(["class Loose", "class Base", "class Derived", "Derived --|> Base"]);
+
+		Assert.Equal(Row(0), diagram.FindNode("Base").Position.Value.Y);
+		Assert.Equal(Row(1), diagram.FindNode("Derived").Position.Value.Y);
+		Assert.Equal(new Vector2(Column(0), Row(3)), diagram.FindNode("Loose").Position);
+	}
+
+	[Fact]
+	public void CountsANodeRelatedOnlyToItselfAsUnconnected()
+	{
+		UMLDiagram diagram = Build("class Base", "class Derived", "class Self", "Derived --|> Base", "Self --> Self");
+
+		Assert.Equal(Row(3), diagram.FindNode("Self").Position.Value.Y);
 	}
 
 	/// <summary>

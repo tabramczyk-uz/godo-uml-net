@@ -25,6 +25,19 @@ public static class UMLAutoLayout
 	public static readonly Vector2 EstimatedNodeSize = new(160.0f, 100.0f);
 	public const float ClearanceBuffer = 20.0f;
 
+	/// <summary>
+	/// The width-to-height ratio the layout aims for when it has a choice, as
+	/// with the grid of unconnected nodes. A constant, never a setting or the
+	/// window size, so the layout depends only on the source (ADR-0002).
+	/// </summary>
+	public const float TargetAspectRatio = 4.0f / 3.0f;
+
+	/// <summary>
+	/// The narrowest the grid of unconnected nodes gets, so that a handful of
+	/// them still stand in one row.
+	/// </summary>
+	public const int MinimumGridColumns = 4;
+
 	private const int OrderingSweeps = 4;
 	private const int SeparationPasses = 32;
 	private const float OverlapTolerance = 0.01f;
@@ -92,11 +105,105 @@ public static class UMLAutoLayout
 	/// </summary>
 	public static Dictionary<UMLNode, Vector2> Layout(List<UMLNode> nodes, List<UMLRelationship> relationships)
 	{
-		if (nodes.Count == 0)
+		HashSet<UMLNode> related = FindRelatedNodes(nodes, relationships);
+		List<UMLNode> connected = nodes.Where(related.Contains).ToList();
+		List<UMLNode> unconnected = nodes.Where(node => !related.Contains(node)).ToList();
+
+		Dictionary<UMLNode, Vector2> positions = [];
+		int gridTop = 0;
+		int gridColumns = ColumnsForArea(unconnected.Count);
+
+		if (connected.Count > 0)
 		{
-			return [];
+			Block block = LayOutLayered(connected, relationships);
+			Place(block, Vector2I.Zero, positions);
+			gridTop = block.Rows + 1;
+			gridColumns = block.Columns;
 		}
 
+		PlaceGrid(unconnected, gridTop, Mathf.Max(MinimumGridColumns, gridColumns), positions);
+		return positions;
+	}
+
+	/// <summary>
+	/// A part of the diagram laid out on its own, to be put somewhere on the
+	/// grid as a whole: each node's offset in pixels from the block's top-left
+	/// cell, and how many whole cells the block covers.
+	/// </summary>
+	private sealed record Block(Dictionary<UMLNode, Vector2> Offsets, int Columns, int Rows);
+
+	/// <summary>
+	/// The nodes with a relationship to another node. The rest are unconnected
+	/// nodes: they say nothing about where they belong, so they are put in a
+	/// grid below everything else rather than strung out along the top row.
+	/// </summary>
+	private static HashSet<UMLNode> FindRelatedNodes(List<UMLNode> nodes, List<UMLRelationship> relationships)
+	{
+		HashSet<UMLNode> laidOut = [.. nodes];
+		HashSet<UMLNode> related = [];
+		foreach (UMLRelationship relationship in relationships)
+		{
+			if (
+				relationship.From != relationship.To
+				&& laidOut.Contains(relationship.From)
+				&& laidOut.Contains(relationship.To)
+			)
+			{
+				related.Add(relationship.From);
+				related.Add(relationship.To);
+			}
+		}
+
+		return related;
+	}
+
+	/// <summary>
+	/// How many columns a grid of <paramref name="area"/> cells needs to come
+	/// out closest to <see cref="TargetAspectRatio"/> in pixels, rounded up so
+	/// that it leans wide. Cells are wider than they are tall, which the
+	/// spacing ratio corrects for.
+	/// </summary>
+	private static int ColumnsForArea(float area)
+	{
+		return Mathf.CeilToInt(Mathf.Sqrt(area * TargetAspectRatio * RowSpacing / ColumnSpacing));
+	}
+
+	/// <summary>
+	/// Lays <paramref name="nodes"/> out row by row in declaration order,
+	/// <paramref name="columns"/> to a row, starting at row <paramref name="top"/>.
+	/// </summary>
+	private static void PlaceGrid(
+		List<UMLNode> nodes,
+		int top,
+		int columns,
+		Dictionary<UMLNode, Vector2> positions
+	)
+	{
+		for (int i = 0; i < nodes.Count; i++)
+		{
+			positions[nodes[i]] = CellPosition(new Vector2I(i % columns, top + (i / columns)));
+		}
+	}
+
+	private static void Place(Block block, Vector2I origin, Dictionary<UMLNode, Vector2> positions)
+	{
+		foreach ((UMLNode node, Vector2 offset) in block.Offsets)
+		{
+			positions[node] = CellPosition(origin) + offset;
+		}
+	}
+
+	private static Vector2 CellPosition(Vector2I cell)
+	{
+		return new Vector2(Margin + (cell.X * ColumnSpacing), Margin + (cell.Y * RowSpacing));
+	}
+
+	/// <summary>
+	/// The layered layout of <paramref name="nodes"/>: rows decided by the
+	/// hierarchical relationships, each row ordered by all of them.
+	/// </summary>
+	private static Block LayOutLayered(List<UMLNode> nodes, List<UMLRelationship> relationships)
+	{
 		Dictionary<UMLNode, int> indices = IndexNodes(nodes);
 		(List<(int From, int To)> hierarchy, List<(int From, int To)> pulls) = BuildEdges(relationships, indices);
 		List<(int From, int To)> edges = BreakCycles(nodes.Count, hierarchy);
@@ -105,7 +212,7 @@ public static class UMLAutoLayout
 		List<List<int>> rows = GroupIntoRows(layers.Length, layers);
 
 		OrderRows(rows, [.. edges, .. pulls], layers);
-		return PlaceNodes(nodes, rows);
+		return PlaceRows(nodes, rows);
 	}
 
 	/// <summary>
@@ -524,9 +631,12 @@ public static class UMLAutoLayout
 		}
 	}
 
-	private static Dictionary<UMLNode, Vector2> PlaceNodes(List<UMLNode> nodes, List<List<int>> rows)
+	/// <summary>
+	/// Turns the ordered rows into a block, each row centred on the widest.
+	/// </summary>
+	private static Block PlaceRows(List<UMLNode> nodes, List<List<int>> rows)
 	{
-		var positions = new Dictionary<UMLNode, Vector2>(nodes.Count);
+		var offsets = new Dictionary<UMLNode, Vector2>(nodes.Count);
 
 		int widestRow = 0;
 		foreach (List<int> row in rows)
@@ -536,23 +646,18 @@ public static class UMLAutoLayout
 
 		for (int row = 0; row < rows.Count; row++)
 		{
-			float offset = (widestRow - rows[row].Count) * ColumnSpacing / 2.0f;
+			float indent = (widestRow - rows[row].Count) * ColumnSpacing / 2.0f;
 			for (int column = 0; column < rows[row].Count; column++)
 			{
 				// A placeholder from SplitLongEdges only keeps its cell free.
 				int node = rows[row][column];
 				if (node < nodes.Count)
 				{
-					positions[nodes[node]] = CellPosition(offset, column, row);
+					offsets[nodes[node]] = new Vector2(indent + (column * ColumnSpacing), row * RowSpacing);
 				}
 			}
 		}
 
-		return positions;
-	}
-
-	private static Vector2 CellPosition(float offset, int column, int row)
-	{
-		return new Vector2(Margin + offset + (column * ColumnSpacing), Margin + (row * RowSpacing));
+		return new Block(offsets, widestRow, rows.Count);
 	}
 }
