@@ -78,10 +78,10 @@ public partial class Main : Control
 		// Unique Name in the editor), wherever it sits in the tree.
 		fileMenu = GetNode<PopupMenu>("%File");
 		fileMenu.IdPressed += OnFileMenuIdPressed;
-		SetShortcut(FileMenuItem.New, Key.N);
-		SetShortcut(FileMenuItem.Open, Key.O);
-		SetShortcut(FileMenuItem.Save, Key.S);
-		SetShortcut(FileMenuItem.SaveAs, Key.S, shift: true);
+		SetShortcut(fileMenu, (int)FileMenuItem.Open, Key.O);
+		SetShortcut(fileMenu, (int)FileMenuItem.Save, Key.S);
+		SetShortcut(fileMenu, (int)FileMenuItem.SaveAs, Key.S, shift: true);
+		AddNewMenu();
 
 		openDialog = GetNode<FileDialog>("%OpenDialog");
 		openDialog.Filters = [UMLFileFormat.DialogFilter];
@@ -156,7 +156,26 @@ public partial class Main : Control
 		}
 	}
 
-	private void SetShortcut(FileMenuItem item, Key key, bool shift = false)
+	/// <summary>
+	/// Turns File → New into a submenu with one item per diagram kind, each
+	/// item's id being its kind. Ctrl+N starts a class diagram, the kind a
+	/// diagram without a header is.
+	/// </summary>
+	private void AddNewMenu()
+	{
+		var newMenu = new PopupMenu { Name = "NewMenu" };
+		foreach (UMLDiagramKind kind in Enum.GetValues<UMLDiagramKind>())
+		{
+			newMenu.AddItem($"{kind} Diagram", (int)kind);
+		}
+
+		SetShortcut(newMenu, (int)UMLDiagramKind.Class, Key.N);
+		newMenu.IdPressed += id =>
+			ConfirmDiscardingChanges("starting a new diagram", () => NewDiagram((UMLDiagramKind)id));
+		fileMenu.SetItemSubmenuNode(fileMenu.GetItemIndex((int)FileMenuItem.New), newMenu);
+	}
+
+	private static void SetShortcut(PopupMenu menu, int id, Key key, bool shift = false)
 	{
 		var keyEvent = new InputEventKey
 		{
@@ -165,16 +184,13 @@ public partial class Main : Control
 			CommandOrControlAutoremap = true,
 		};
 
-		fileMenu.SetItemShortcut(fileMenu.GetItemIndex((int)item), new Shortcut { Events = [keyEvent] });
+		menu.SetItemShortcut(menu.GetItemIndex(id), new Shortcut { Events = [keyEvent] });
 	}
 
 	private void OnFileMenuIdPressed(long id)
 	{
 		switch ((FileMenuItem)id)
 		{
-			case FileMenuItem.New:
-				ConfirmDiscardingChanges("starting a new diagram", NewDiagram);
-				break;
 			case FileMenuItem.Open:
 				ConfirmDiscardingChanges("opening another diagram", () => openDialog.PopupCentered());
 				break;
@@ -279,7 +295,7 @@ public partial class Main : Control
 			"importing a diagram",
 			() =>
 			{
-				ReplaceDiagram(code);
+				ReplaceDiagram(code, isUnsaved: true);
 				plantUmlInput.Text = string.Empty;
 			}
 		);
@@ -299,22 +315,27 @@ public partial class Main : Control
 		skippedLinesShown = false;
 	}
 
-	private void NewDiagram()
+	/// <summary>
+	/// Starts a blank diagram of <paramref name="kind"/>. Its starting code,
+	/// such as a sequence diagram's header, counts as saved, so an untouched
+	/// new diagram has no unsaved changes to ask about.
+	/// </summary>
+	private void NewDiagram(UMLDiagramKind kind)
 	{
-		ReplaceDiagram(string.Empty);
+		ReplaceDiagram(UMLDiagramHeader.NewDiagramCode(kind), isUnsaved: false);
 	}
 
 	/// <summary>
 	/// Replaces the diagram with <paramref name="code"/> as a new, untitled
-	/// one, so the next Save asks where to put it: empty for New, generated for
-	/// an import, which is therefore unsaved. The Save As dialog stays in the
-	/// same folder but forgets the old file name, so it cannot suggest
+	/// one, so the next Save asks where to put it: a blank diagram for New,
+	/// or generated for an import, which is unsaved. The Save As dialog stays
+	/// in the same folder but forgets the old file name, so it cannot suggest
 	/// overwriting that file.
 	/// </summary>
-	private void ReplaceDiagram(string code)
+	private void ReplaceDiagram(string code, bool isUnsaved)
 	{
 		LoadCode(code);
-		document = new UMLDocument();
+		document = new UMLDocument(isUnsaved ? string.Empty : code);
 		saveDialog.CurrentFile = string.Empty;
 		UpdateTitle();
 	}
