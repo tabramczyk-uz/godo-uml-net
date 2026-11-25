@@ -246,18 +246,19 @@ public partial class Main : Control
 	}
 
 	/// <summary>
-	/// Imports the pasted PlantUML as a new, untitled diagram. Pasted text with
-	/// nothing to import keeps the dialog open with a note saying so. Text the
-	/// importer only partly understands first lists the lines it would lose,
-	/// and imports on a second press.
+	/// Imports the pasted PlantUML as a new, untitled diagram of whichever
+	/// kind it is. Pasted text with nothing to import keeps the dialog open
+	/// with a note saying so. Text the importer only partly understands first
+	/// lists the lines it would lose, and imports on a second press.
 	/// </summary>
 	private void OnImportConfirmed()
 	{
-		PlantUMLImportResult result = PlantUMLImporter.Import(plantUmlInput.Text);
+		PlantUMLDiagramImport result = PlantUMLDiagrams.Import(plantUmlInput.Text);
 		if (result.IsEmpty)
 		{
 			ShowImportMessage(
-				"There is nothing to import: no classes, interfaces, enums, use cases or actors were found."
+				"There is nothing to import: no classes, interfaces, enums, use cases, actors "
+					+ "or sequence diagram participants were found."
 			);
 			return;
 		}
@@ -272,7 +273,7 @@ public partial class Main : Control
 		}
 
 		importDialog.Hide();
-		string code = UMLCodeGenerator.Generate(result.Diagram);
+		string code = result.Code;
 		ConfirmDiscardingChanges(
 			"importing a diagram",
 			() =>

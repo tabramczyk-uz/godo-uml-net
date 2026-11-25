@@ -3,8 +3,9 @@ using Xunit;
 namespace GodoUML.Tests;
 
 /// <summary>
-/// The File menu's PlantUML export goes through <see cref="PlantUMLDiagrams"/>,
-/// which picks the exporter by diagram kind.
+/// The File menu's PlantUML import and export go through
+/// <see cref="PlantUMLDiagrams"/>, which picks the importer or exporter by
+/// diagram kind.
 /// </summary>
 public class PlantUMLDiagramsTests
 {
@@ -71,5 +72,74 @@ public class PlantUMLDiagramsTests
 
 		Assert.False(result.IsSuccess);
 		Assert.Equal(2, result.ErrorLineNumber);
+	}
+
+	[Fact]
+	public void ImportsAPlantUMLSequenceDiagramAsASequenceDiagram()
+	{
+		PlantUMLDiagramImport result = PlantUMLDiagrams.Import(
+			"@startuml\nactor User\nUser -> Shop : order\n@enduml"
+		);
+
+		Assert.Equal(UMLDiagramKind.Sequence, result.Kind);
+		Assert.False(result.IsEmpty);
+		Assert.Null(result.DescribeSkippedLines());
+		Assert.Equal(
+			"diagram sequence\n\nactor User\nparticipant Shop\n\nUser -> Shop : order\n",
+			result.Code
+		);
+		Assert.Equal(UMLDiagramKind.Sequence, UMLDiagramHeader.Read(result.Code).Kind);
+	}
+
+	[Fact]
+	public void ImportsAPlantUMLClassDiagramAsAClassDiagram()
+	{
+		PlantUMLDiagramImport result = PlantUMLDiagrams.Import(
+			"@startuml\nclass A\nclass B\nA <|-- B\n@enduml"
+		);
+
+		Assert.Equal(UMLDiagramKind.Class, result.Kind);
+		Assert.False(result.IsEmpty);
+		Assert.False(UMLDiagramHeader.Read(result.Code).IsPresent);
+		UMLParseResult parsed = UMLParser.Parse(result.Code);
+		Assert.True(parsed.IsSuccess);
+		Assert.Equal(2, parsed.Diagram.Nodes.Count);
+		Assert.Equal(
+			UMLRelationshipType.Generalization,
+			Assert.Single(parsed.Diagram.Relationships).Type
+		);
+	}
+
+	[Fact]
+	public void ListsTheLinesASequenceDiagramImportSkips()
+	{
+		PlantUMLDiagramImport result = PlantUMLDiagrams.Import(
+			"@startuml\nparticipant A\nalt ok\nA -> A\nend\n@enduml"
+		);
+
+		Assert.Equal(UMLDiagramKind.Sequence, result.Kind);
+		Assert.NotEmpty(result.Warnings);
+		Assert.NotNull(result.DescribeSkippedLines());
+	}
+
+	[Fact]
+	public void ReportsAnEmptyImportWhenNothingCanBeImported()
+	{
+		PlantUMLDiagramImport result = PlantUMLDiagrams.Import("@startuml\n@enduml");
+
+		Assert.True(result.IsEmpty);
+	}
+
+	[Fact]
+	public void ExportThenImportGivesBackTheSequenceDiagramCode()
+	{
+		const string code =
+			"diagram sequence\n\nactor User\nparticipant Shop\n\n"
+			+ "User -> Shop : order\nShop ->> Shop : log\nShop --> User : receipt\n";
+
+		PlantUMLExportResult exported = PlantUMLDiagrams.Export(code);
+		PlantUMLDiagramImport imported = PlantUMLDiagrams.Import(exported.Text);
+
+		Assert.Equal(code, imported.Code);
 	}
 }
