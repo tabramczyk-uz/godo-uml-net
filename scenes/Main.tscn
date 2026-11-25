@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://ltwm0xrhtrp4" path="res://scenes/code_editor/CodeEditor.tscn" id="1"]
 [ext_resource type="PackedScene" uid="uid://cnqa6ac58r558" path="res://scenes/visual_editor/ClassDiagramCanvas.tscn" id="2"]
 [ext_resource type="Script" uid="uid://e2d740ygpqgd" path="res://scenes/Main.cs" id="3"]
+[ext_resource type="PackedScene" uid="uid://dcv4kc8apir8a" path="res://scenes/sequence_editor/SequenceDiagramCanvas.tscn" id="4"]
 
 [node name="Main" type="Control" unique_id=1076279133]
 layout_mode = 3
@@ -67,6 +68,11 @@ size_flags_horizontal = 3
 
 [node name="ClassDiagramCanvas" parent="VBoxContainer/HSplitContainer/Canvases" unique_id=505607726 instance=ExtResource("2")]
 unique_name_in_owner = true
+layout_mode = 2
+
+[node name="SequenceDiagramCanvas" parent="VBoxContainer/HSplitContainer/Canvases" unique_id=1287345096 instance=ExtResource("4")]
+unique_name_in_owner = true
+visible = false
 layout_mode = 2
 
 [node name="OpenDialog" type="FileDialog" parent="." unique_id=1219405736]

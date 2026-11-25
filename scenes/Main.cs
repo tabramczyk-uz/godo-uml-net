@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 // `partial` lets Godot's source generators add the glue code every C# node
@@ -29,6 +30,16 @@ public partial class Main : Control
 
 	private CodeEditor codeEditor;
 	private ClassDiagramController classDiagram;
+
+	/// <summary>The controller for each diagram kind, picked by the diagram header.</summary>
+	private Dictionary<UMLDiagramKind, IDiagramController> diagramControllers;
+
+	/// <summary>
+	/// The controller whose canvas is showing: the one for the kind the header
+	/// last named, which stays when a header error leaves the kind unknown.
+	/// </summary>
+	private IDiagramController activeDiagram;
+
 	private PopupMenu fileMenu;
 	private FileDialog openDialog;
 	private FileDialog saveDialog;
@@ -109,7 +120,26 @@ public partial class Main : Control
 			codeEditor,
 			GetNode<ClassDiagramCanvas>("%ClassDiagramCanvas")
 		);
-		classDiagram.ErrorReported += ShowErrorDialog;
+		var sequenceDiagram = new SequenceDiagramController(
+			codeEditor,
+			GetNode<SequenceDiagramCanvas>("%SequenceDiagramCanvas")
+		);
+
+		diagramControllers = new()
+		{
+			{ UMLDiagramKind.Class, classDiagram },
+			{ UMLDiagramKind.Sequence, sequenceDiagram },
+		};
+
+		foreach (IDiagramController controller in diagramControllers.Values)
+		{
+			controller.ErrorReported += ShowErrorDialog;
+			controller.SetActive(false);
+		}
+
+		// Code without a header is a class diagram, so that canvas shows first.
+		activeDiagram = classDiagram;
+		activeDiagram.SetActive(true);
 
 		document = new UMLDocument(codeEditor.Code);
 		UpdateTitle();
@@ -174,20 +204,38 @@ public partial class Main : Control
 	/// </summary>
 	private void ExportToPlantUML()
 	{
-		UMLParseResult result = UMLParser.Parse(codeEditor.Code);
+		string code = codeEditor.Code;
+		UMLDiagramHeader header = UMLDiagramHeader.Read(code);
+		if (!header.IsSuccess)
+		{
+			ShowExportError(header.ErrorMessage, header.ErrorLineNumber);
+			return;
+		}
+
+		if (header.Kind != UMLDiagramKind.Class)
+		{
+			ShowErrorDialog("Cannot Export", "Only class diagrams can be exported to PlantUML so far.");
+			return;
+		}
+
+		UMLParseResult result = UMLParser.Parse(header.RemoveFrom(code));
 		if (!result.IsSuccess)
 		{
-			ShowErrorDialog(
-				"Cannot Export",
-				$"The code has an error on line {result.ErrorLineNumber + 1}: {result.ErrorMessage}\n"
-					+ "Fix it, then export again."
-			);
+			ShowExportError(result.ErrorMessage, result.ErrorLineNumber);
 			return;
 		}
 
 		plantUmlText.Text = PlantUMLExporter.Export(result.Diagram);
 		copyButton.Text = CopyText;
 		exportDialog.PopupCentered();
+	}
+
+	private void ShowExportError(string message, int lineNumber)
+	{
+		ShowErrorDialog(
+			"Cannot Export",
+			$"The code has an error on line {lineNumber + 1}: {message}\nFix it, then export again."
+		);
 	}
 
 	private void OnExportDialogCustomAction(StringName action)
@@ -362,7 +410,18 @@ public partial class Main : Control
 	{
 		classDiagram.ForgetLayout();
 		codeEditor.LoadCode(code);
-		classDiagram.FrameDiagram();
+		FrameActiveDiagramLater();
+	}
+
+	/// <summary>
+	/// Frames the diagram on the active canvas once the frame's layout has run.
+	/// A canvas that has just been shown still has the size it had while
+	/// hidden, if it ever had one, until its container sorts it, which Godot
+	/// defers, and framing goes by that size.
+	/// </summary>
+	private void FrameActiveDiagramLater()
+	{
+		Callable.From(() => activeDiagram.FrameDiagram()).CallDeferred();
 	}
 
 	/// <summary>
@@ -441,9 +500,40 @@ public partial class Main : Control
 		errorDialog.CallDeferred(Window.MethodName.PopupCentered, Vector2I.Zero);
 	}
 
+	/// <summary>
+	/// Reads the diagram header and hands the rest of the code to the
+	/// controller for the kind it names, switching canvases when the kind
+	/// changed. A header error is shown on the canvas already showing, since
+	/// the kind is then unknown.
+	/// </summary>
 	private void OnCodeChanged(string code)
 	{
 		UpdateTitle();
-		classDiagram.ShowCode(code);
+
+		UMLDiagramHeader header = UMLDiagramHeader.Read(code);
+		if (!header.IsSuccess)
+		{
+			codeEditor.ShowError(header.ErrorMessage, header.ErrorLineNumber);
+			activeDiagram.ShowInvalid();
+			return;
+		}
+
+		IDiagramController controller = diagramControllers[header.Kind];
+		bool switched = controller != activeDiagram;
+		if (switched)
+		{
+			activeDiagram.SetActive(false);
+			controller.SetActive(true);
+			activeDiagram = controller;
+		}
+
+		activeDiagram.ShowCode(header.RemoveFrom(code));
+
+		// The other canvas has its own camera, last placed for whatever it
+		// showed before, if anything.
+		if (switched)
+		{
+			FrameActiveDiagramLater();
+		}
 	}
 }

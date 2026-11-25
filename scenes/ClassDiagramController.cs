@@ -9,12 +9,9 @@ using Godot;
 /// <see cref="UMLCodeWriter"/>. The shell (<see cref="Main"/>) only tells it
 /// when the code changed. See ADR-0001.
 /// </summary>
-public class ClassDiagramController
+public class ClassDiagramController : IDiagramController
 {
-	/// <summary>
-	/// Raised with a title and a message when a canvas edit is refused, such
-	/// as a rename to a name already taken, for the shell to show.
-	/// </summary>
+	/// <inheritdoc/>
 	public event Action<string, string> ErrorReported;
 
 	private readonly CodeEditor codeEditor;
@@ -43,13 +40,15 @@ public class ClassDiagramController
 		canvas.RedoRequested += codeEditor.Redo;
 	}
 
-	/// <summary>
-	/// Parses <paramref name="code"/> and shows it on the canvas, or, if it has
-	/// an error, marks the error in the code editor and grays out the canvas.
-	/// </summary>
-	public void ShowCode(string code)
+	public void SetActive(bool active)
 	{
-		UMLParseResult result = UMLParser.Parse(code);
+		canvas.Visible = active;
+		canvas.ProcessMode = active ? Node.ProcessModeEnum.Inherit : Node.ProcessModeEnum.Disabled;
+	}
+
+	public void ShowCode(string body)
+	{
+		UMLParseResult result = UMLParser.Parse(body);
 		if (result.IsSuccess)
 		{
 			codeEditor.DismissError();
@@ -64,6 +63,11 @@ public class ClassDiagramController
 		canvas.RenderDiagram(result.Diagram);
 	}
 
+	public void ShowInvalid()
+	{
+		canvas.RenderDiagram(null);
+	}
+
 	/// <summary>
 	/// Drops the remembered auto-layout positions, before a different diagram
 	/// replaces this one, so it is laid out afresh.
@@ -73,7 +77,6 @@ public class ClassDiagramController
 		canvas.ForgetLayout();
 	}
 
-	/// <summary>Fits the whole diagram on the canvas, as after opening a file.</summary>
 	public void FrameDiagram()
 	{
 		canvas.FrameDiagram();
