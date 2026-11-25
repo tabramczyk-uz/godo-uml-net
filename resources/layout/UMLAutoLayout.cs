@@ -6,11 +6,15 @@ using Godot;
 /// Places the nodes of a diagram that arrived without coordinates, which is what
 /// every PlantUML file that GodoUML did not write itself looks like.
 ///
-/// It is a layered layout in the Sugiyama spirit: hierarchical relationships are
-/// read as "this one belongs above that one", nodes are pushed as far down as
-/// those relationships require, and each row is then ordered, by every
-/// relationship, to keep the lines between rows as untangled as the barycentre
-/// rule can manage.
+/// The diagram is split into connected groups, each laid out on its own and
+/// then packed on shelves towards <see cref="TargetAspectRatio"/>; unconnected
+/// nodes go in a grid below them all.
+///
+/// Each group gets a layered layout in the Sugiyama spirit: hierarchical
+/// relationships are read as "this one belongs above that one", nodes are
+/// pushed as far down as those relationships require, and each row is then
+/// ordered, by every relationship, to keep the lines between rows as untangled
+/// as the barycentre rule can manage.
 /// </summary>
 public static class UMLAutoLayout
 {
@@ -26,9 +30,11 @@ public static class UMLAutoLayout
 	public const float ClearanceBuffer = 20.0f;
 
 	/// <summary>
-	/// The width-to-height ratio the layout aims for when it has a choice, as
-	/// with the grid of unconnected nodes. A constant, never a setting or the
-	/// window size, so the layout depends only on the source (ADR-0002).
+	/// The width-to-height ratio the layout aims for where it has a choice: the
+	/// width of the shelves the groups are packed on, and of the grid of
+	/// unconnected nodes when nothing else is in the diagram. A constant, never
+	/// a setting or the window size, so the layout depends only on the source
+	/// (ADR-0002).
 	/// </summary>
 	public const float TargetAspectRatio = 4.0f / 3.0f;
 
@@ -105,20 +111,23 @@ public static class UMLAutoLayout
 	/// </summary>
 	public static Dictionary<UMLNode, Vector2> Layout(List<UMLNode> nodes, List<UMLRelationship> relationships)
 	{
-		HashSet<UMLNode> related = FindRelatedNodes(nodes, relationships);
-		List<UMLNode> connected = nodes.Where(related.Contains).ToList();
-		List<UMLNode> unconnected = nodes.Where(node => !related.Contains(node)).ToList();
+		(List<List<UMLNode>> groups, List<UMLNode> unconnected) = FindConnectedGroups(nodes, relationships);
+		List<Block> blocks = groups.Select(group => LayOutLayered(group, relationships)).ToList();
 
 		Dictionary<UMLNode, Vector2> positions = [];
 		int gridTop = 0;
 		int gridColumns = ColumnsForArea(unconnected.Count);
 
-		if (connected.Count > 0)
+		if (blocks.Count > 0)
 		{
-			Block block = LayOutLayered(connected, relationships);
-			Place(block, Vector2I.Zero, positions);
-			gridTop = block.Rows + 1;
-			gridColumns = block.Columns;
+			(Vector2I[] origins, Vector2I size) = PackOnShelves(blocks);
+			for (int i = 0; i < blocks.Count; i++)
+			{
+				Place(blocks[i], origins[i], positions);
+			}
+
+			gridTop = size.Y + 1;
+			gridColumns = size.X;
 		}
 
 		PlaceGrid(unconnected, gridTop, Mathf.Max(MinimumGridColumns, gridColumns), positions);
@@ -133,28 +142,110 @@ public static class UMLAutoLayout
 	private sealed record Block(Dictionary<UMLNode, Vector2> Offsets, int Columns, int Rows);
 
 	/// <summary>
-	/// The nodes with a relationship to another node. The rest are unconnected
-	/// nodes: they say nothing about where they belong, so they are put in a
-	/// grid below everything else rather than strung out along the top row.
+	/// Splits the nodes into connected groups, the nodes joined through
+	/// relationships of any type, each laid out on its own; groups and their
+	/// nodes keep declaration order. Nodes with no relationship to another node
+	/// come back separately as unconnected: they say nothing about where they
+	/// belong, so they go in a grid below everything else rather than taking
+	/// cells among the groups.
 	/// </summary>
-	private static HashSet<UMLNode> FindRelatedNodes(List<UMLNode> nodes, List<UMLRelationship> relationships)
+	private static (List<List<UMLNode>> Groups, List<UMLNode> Unconnected) FindConnectedGroups(
+		List<UMLNode> nodes,
+		List<UMLRelationship> relationships
+	)
 	{
-		HashSet<UMLNode> laidOut = [.. nodes];
-		HashSet<UMLNode> related = [];
+		Dictionary<UMLNode, int> indices = IndexNodes(nodes);
+
+		// Union-find: each node points towards a representative of its group.
+		int[] parent = Enumerable.Range(0, nodes.Count).ToArray();
+		bool[] related = new bool[nodes.Count];
 		foreach (UMLRelationship relationship in relationships)
 		{
 			if (
-				relationship.From != relationship.To
-				&& laidOut.Contains(relationship.From)
-				&& laidOut.Contains(relationship.To)
+				indices.TryGetValue(relationship.From, out int from)
+				&& indices.TryGetValue(relationship.To, out int to)
+				&& from != to
 			)
 			{
-				related.Add(relationship.From);
-				related.Add(relationship.To);
+				related[from] = true;
+				related[to] = true;
+				parent[FindRepresentative(parent, from)] = FindRepresentative(parent, to);
 			}
 		}
 
-		return related;
+		var groupsByRoot = new Dictionary<int, List<UMLNode>>();
+		List<List<UMLNode>> groups = [];
+		List<UMLNode> unconnected = [];
+		for (int node = 0; node < nodes.Count; node++)
+		{
+			if (!related[node])
+			{
+				unconnected.Add(nodes[node]);
+				continue;
+			}
+
+			int representative = FindRepresentative(parent, node);
+			if (!groupsByRoot.TryGetValue(representative, out List<UMLNode> group))
+			{
+				group = [];
+				groupsByRoot[representative] = group;
+				groups.Add(group);
+			}
+
+			group.Add(nodes[node]);
+		}
+
+		return (groups, unconnected);
+	}
+
+	private static int FindRepresentative(int[] parent, int node)
+	{
+		while (parent[node] != node)
+		{
+			parent[node] = parent[parent[node]];
+			node = parent[node];
+		}
+
+		return node;
+	}
+
+	/// <summary>
+	/// Shelf packing: the blocks go left to right in order, top-aligned, with
+	/// an empty cell between neighbours, and a block that would overrun the
+	/// width starts a new shelf one empty row below the tallest block of the
+	/// last. The width is the larger of the widest block and what
+	/// <see cref="TargetAspectRatio"/> asks for the blocks' total area, gaps
+	/// included. Returns each block's top-left cell and the cells covered by
+	/// the shelves that were filled.
+	/// </summary>
+	private static (Vector2I[] Origins, Vector2I Size) PackOnShelves(List<Block> blocks)
+	{
+		int area = blocks.Sum(block => (block.Columns + 1) * (block.Rows + 1));
+		int width = Mathf.Max(blocks.Max(block => block.Columns), ColumnsForArea(area));
+
+		var origins = new Vector2I[blocks.Count];
+		int x = 0;
+		int shelfTop = 0;
+		int shelfHeight = 0;
+		int widest = 0;
+
+		for (int i = 0; i < blocks.Count; i++)
+		{
+			if (x > 0 && x + blocks[i].Columns > width)
+			{
+				shelfTop += shelfHeight + 1;
+				shelfHeight = 0;
+				x = 0;
+			}
+
+			origins[i] = new Vector2I(x, shelfTop);
+			x += blocks[i].Columns;
+			widest = Mathf.Max(widest, x);
+			shelfHeight = Mathf.Max(shelfHeight, blocks[i].Rows);
+			x += 1;
+		}
+
+		return (origins, new Vector2I(widest, shelfTop + shelfHeight));
 	}
 
 	/// <summary>

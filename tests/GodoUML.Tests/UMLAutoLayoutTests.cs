@@ -192,6 +192,100 @@ public class UMLAutoLayoutTests
 		Assert.Equal(new Vector2(Column(0), Row(3)), diagram.FindNode("Loose").Position);
 	}
 
+	/// <summary>
+	/// <paramref name="count"/> separate groups, each a subclass under its own
+	/// base: <c>B1</c> above <c>D1</c>, <c>B2</c> above <c>D2</c>, …
+	/// </summary>
+	private static string[] SeparateHierarchies(int count) =>
+		Enumerable
+			.Range(1, count)
+			.SelectMany(i => new[] { $"class B{i}", $"class D{i}", $"D{i} --|> B{i}" })
+			.ToArray();
+
+	private static Vector2 CellOf(UMLDiagram diagram, string name)
+	{
+		Vector2 position = diagram.FindNode(name).Position.Value - (Vector2.One * UMLAutoLayout.Margin);
+		return new Vector2(position.X / UMLAutoLayout.ColumnSpacing, position.Y / UMLAutoLayout.RowSpacing);
+	}
+
+	[Fact]
+	public void KeepsAnEmptyCellBetweenSeparateGroups()
+	{
+		UMLDiagram diagram = Build(SeparateHierarchies(6));
+
+		for (int i = 1; i <= 6; i++)
+		{
+			for (int j = i + 1; j <= 6; j++)
+			{
+				foreach (string a in new[] { $"B{i}", $"D{i}" })
+				{
+					foreach (string b in new[] { $"B{j}", $"D{j}" })
+					{
+						Vector2 apart = (CellOf(diagram, a) - CellOf(diagram, b)).Abs();
+						Assert.True(apart.X >= 2 || apart.Y >= 2, $"{a} and {b} are only {apart} cells apart");
+					}
+				}
+			}
+		}
+	}
+
+	[Fact]
+	public void PacksManyGroupsOnSeveralShelves()
+	{
+		UMLDiagram diagram = Build(SeparateHierarchies(6));
+
+		Assert.True(diagram.Nodes.Select(node => node.Position.Value.Y).Distinct().Count() > 2);
+		Assert.Equal(new Vector2(0, 0), CellOf(diagram, "B1"));
+		Assert.Equal(new Vector2(2, 0), CellOf(diagram, "B2"));
+	}
+
+	[Fact]
+	public void PutsTheGridOfUnconnectedNodesBelowEveryShelf()
+	{
+		UMLDiagram diagram = Build([.. SeparateHierarchies(6), "class Loose"]);
+
+		float lowestInAGroup = diagram.Nodes.Where(node => node.Name != "Loose").Max(node => node.Position.Value.Y);
+		Assert.Equal(lowestInAGroup + (2 * UMLAutoLayout.RowSpacing), diagram.FindNode("Loose").Position.Value.Y);
+		Assert.Equal(Column(0), diagram.FindNode("Loose").Position.Value.X);
+	}
+
+	[Fact]
+	public void NeverWrapsTheSubclassesOfOneBase()
+	{
+		UMLDiagram diagram = Build(
+			[.. Classes(12, "Sub"), "class Base", .. Enumerable.Range(1, 12).Select(i => $"Sub{i} --|> Base")]
+		);
+
+		IEnumerable<UMLNode> subclasses = diagram.Nodes.Where(node => node.Name != "Base");
+		Assert.Single(subclasses.Select(node => node.Position.Value.Y).Distinct());
+	}
+
+	[Fact]
+	public void StacksALongChainOfInheritanceInOneColumn()
+	{
+		UMLDiagram diagram = Build(
+			[.. Classes(10), .. Enumerable.Range(2, 9).Select(i => $"C{i} --|> C{i - 1}")]
+		);
+
+		Assert.Single(diagram.Nodes.Select(node => node.Position.Value.X).Distinct());
+		Assert.Equal(10, diagram.Nodes.Select(node => node.Position.Value.Y).Distinct().Count());
+	}
+
+	[Fact]
+	public void KeepsANodeAssociatedWithAHierarchyInItsGroup()
+	{
+		UMLDiagram diagram = Build(
+			"class Friend",
+			"class Base",
+			"class Derived",
+			"Derived --|> Base",
+			"Friend --> Base"
+		);
+
+		Assert.Equal(Row(0), diagram.FindNode("Friend").Position.Value.Y);
+		Assert.Equal(1, Mathf.Abs(CellOf(diagram, "Friend").X - CellOf(diagram, "Base").X));
+	}
+
 	[Fact]
 	public void CountsANodeRelatedOnlyToItselfAsUnconnected()
 	{
