@@ -30,35 +30,66 @@ public static class UMLAutoLayout
 
 	public static void Apply(UMLDiagram diagram)
 	{
-		Assign(Layout(diagram.Nodes, diagram.Relationships, []));
+		Assign(Layout(diagram.Nodes, diagram.Relationships));
 	}
 
+	/// <summary>
+	/// Places the nodes that have no position. The layout is worked out for every
+	/// node, positioned or not, and the positioned ones just don't take their
+	/// cells. So pinning a node, or resetting its position, leaves the cells of
+	/// all the others where they were. A node may land on top of a positioned
+	/// one; the class canvas pushes it aside, the same way it does while a node
+	/// is dragged over it, and <see cref="SeparateFromPositioned"/> does the same
+	/// for callers whose positions end up in the source.
+	/// </summary>
 	public static void ApplyToUnpositioned(UMLDiagram diagram)
 	{
-		List<UMLNode> unpositionedNodes = diagram.Nodes.Where(n => n.Position == null).ToList();
-		if (unpositionedNodes.Count == 0)
+		if (diagram.Nodes.All(node => node.Position != null))
 		{
 			return;
 		}
 
-		List<Vector2> obstacles = diagram
-			.Nodes.Where(n => n.Position != null)
-			.Select(n => n.Position.Value)
-			.ToList();
-
-		Assign(Layout(unpositionedNodes, diagram.Relationships, obstacles));
+		Dictionary<UMLNode, Vector2> positions = Layout(diagram.Nodes, diagram.Relationships);
+		Assign(positions.Where(entry => entry.Key.Position == null).ToDictionary());
 	}
 
 	/// <summary>
-	/// Computes where <paramref name="nodes"/> would go, keeping clear of the fixed
-	/// nodes whose top-left corners are in <paramref name="obstacles"/>. Nothing is
-	/// mutated.
+	/// Pushes the auto-positioned nodes off the positioned ones and off each
+	/// other, as the class canvas would, taking every node to be
+	/// <see cref="EstimatedNodeSize"/>. For positions that will be written into
+	/// the source, such as an import or a paste, where no canvas push follows.
 	/// </summary>
-	public static Dictionary<UMLNode, Vector2> Layout(
-		List<UMLNode> nodes,
-		List<UMLRelationship> relationships,
-		IReadOnlyList<Vector2> obstacles
-	)
+	public static void SeparateFromPositioned(UMLDiagram diagram)
+	{
+		List<UMLNode> movable = [];
+		List<Rect2> restBoxes = [];
+		List<Rect2> fixedBoxes = [];
+		foreach (UMLNode node in diagram.Nodes)
+		{
+			var box = new Rect2(node.Position.Value, EstimatedNodeSize);
+			if (node.IsAutoPositioned)
+			{
+				movable.Add(node);
+				restBoxes.Add(box);
+			}
+			else
+			{
+				fixedBoxes.Add(box);
+			}
+		}
+
+		Vector2[] separated = Separate(restBoxes, fixedBoxes);
+		for (int i = 0; i < movable.Count; i++)
+		{
+			movable[i].Position = separated[i];
+		}
+	}
+
+	/// <summary>
+	/// Computes where <paramref name="nodes"/> would go on the layout's grid.
+	/// Nothing is mutated.
+	/// </summary>
+	public static Dictionary<UMLNode, Vector2> Layout(List<UMLNode> nodes, List<UMLRelationship> relationships)
 	{
 		if (nodes.Count == 0)
 		{
@@ -72,7 +103,7 @@ public static class UMLAutoLayout
 		List<List<int>> rows = GroupIntoRows(layers.Length, layers);
 
 		OrderRows(rows, edges, layers);
-		return PlaceNodes(nodes, rows, obstacles);
+		return PlaceNodes(nodes, rows);
 	}
 
 	/// <summary>
@@ -474,11 +505,7 @@ public static class UMLAutoLayout
 		}
 	}
 
-	private static Dictionary<UMLNode, Vector2> PlaceNodes(
-		List<UMLNode> nodes,
-		List<List<int>> rows,
-		IReadOnlyList<Vector2> obstacles
-	)
+	private static Dictionary<UMLNode, Vector2> PlaceNodes(List<UMLNode> nodes, List<List<int>> rows)
 	{
 		var positions = new Dictionary<UMLNode, Vector2>(nodes.Count);
 
@@ -491,23 +518,14 @@ public static class UMLAutoLayout
 		for (int row = 0; row < rows.Count; row++)
 		{
 			float offset = (widestRow - rows[row].Count) * ColumnSpacing / 2.0f;
-			int column = 0;
-			foreach (int node in rows[row])
+			for (int column = 0; column < rows[row].Count; column++)
 			{
-				Vector2 candidate = CellPosition(offset, column, row);
-				while (Collides(candidate, obstacles))
-				{
-					column++;
-					candidate = CellPosition(offset, column, row);
-				}
-
 				// A placeholder from SplitLongEdges only keeps its cell free.
+				int node = rows[row][column];
 				if (node < nodes.Count)
 				{
-					positions[nodes[node]] = candidate;
+					positions[nodes[node]] = CellPosition(offset, column, row);
 				}
-
-				column++;
 			}
 		}
 
@@ -517,19 +535,5 @@ public static class UMLAutoLayout
 	private static Vector2 CellPosition(float offset, int column, int row)
 	{
 		return new Vector2(Margin + offset + (column * ColumnSpacing), Margin + (row * RowSpacing));
-	}
-
-	private static bool Collides(Vector2 candidate, IReadOnlyList<Vector2> obstacles)
-	{
-		Rect2 box = new Rect2(candidate, EstimatedNodeSize).Grow(ClearanceBuffer);
-		foreach (Vector2 obstacle in obstacles)
-		{
-			if (box.Intersects(new Rect2(obstacle, EstimatedNodeSize)))
-			{
-				return true;
-			}
-		}
-
-		return false;
 	}
 }

@@ -349,6 +349,18 @@ public class PlantUMLImporterTests
 	}
 
 	[Fact]
+	public void KeepsNodesWithoutAPositionClearOfTheOnesWithOne()
+	{
+		PlantUMLImportResult result = PlantUMLImporter.Import(
+			"@startuml\n'@position B [60, 60]\nclass A\nclass B\n@enduml"
+		);
+
+		Rect2 a = new(result.Diagram.FindNode("A").Position.Value, UMLAutoLayout.EstimatedNodeSize);
+		Rect2 b = new(result.Diagram.FindNode("B").Position.Value, UMLAutoLayout.EstimatedNodeSize);
+		Assert.False(a.Intersects(b));
+	}
+
+	[Fact]
 	public void ReadsBackThePositionsItsOwnExporterWrote()
 	{
 		PlantUMLImportResult result = PlantUMLImporter.Import(

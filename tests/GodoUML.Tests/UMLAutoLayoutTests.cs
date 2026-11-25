@@ -351,6 +351,84 @@ public class UMLAutoLayoutTests
 		);
 	}
 
+	private static Vector2? PositionOf(UMLDiagram diagram, string name) => diagram.FindNode(name).Position;
+
+	[Fact]
+	public void PinningANodeLeavesTheOthersInTheirCells()
+	{
+		UMLDiagram before = Open("class A\nclass B\nclass C");
+		UMLDiagram after = Open("class A\nclass B\n\tposition: [1000, 1000]\nclass C");
+
+		Assert.Equal(PositionOf(before, "A"), PositionOf(after, "A"));
+		Assert.Equal(PositionOf(before, "C"), PositionOf(after, "C"));
+	}
+
+	[Fact]
+	public void ResettingANodePutsItBackWithoutMovingTheOthers()
+	{
+		const string code = "class A\nclass B\n\tposition: [1000, 1000]\nclass C";
+		UMLDiagram pinned = Open(code);
+		UMLDiagram reset = Open(ResetPosition(code, "B"));
+
+		Assert.Equal(PositionOf(pinned, "A"), PositionOf(reset, "A"));
+		Assert.Equal(PositionOf(pinned, "C"), PositionOf(reset, "C"));
+		Assert.Equal(PositionOf(Open("class A\nclass B\nclass C"), "B"), PositionOf(reset, "B"));
+	}
+
+	[Fact]
+	public void LeavesANodePinnedOnTopOfAnotherForTheCanvasToPushApart()
+	{
+		UMLDiagram diagram = Open("class A\nclass B\n\tposition: [60, 60]");
+
+		Assert.Equal(new Vector2(UMLAutoLayout.Margin, UMLAutoLayout.Margin), PositionOf(diagram, "A"));
+	}
+
+	/// <summary>
+	/// What the class canvas does with the auto-positioned nodes of
+	/// <paramref name="diagram"/>: pushes them from where the layout put them
+	/// clear of the <paramref name="fixedBoxes"/>.
+	/// </summary>
+	private static Vector2[] Push(UMLDiagram diagram, string[] autoPositioned, Rect2[] fixedBoxes)
+	{
+		Rect2[] rest = autoPositioned
+			.Select(name => new Rect2(PositionOf(diagram, name).Value, UMLAutoLayout.EstimatedNodeSize))
+			.ToArray();
+		return UMLAutoLayout.Separate(rest, fixedBoxes);
+	}
+
+	[Fact]
+	public void DroppingADraggedNodeLeavesTheOthersWhereTheDragPushedThem()
+	{
+		const string code = "class A\nclass B\nclass C\nA --> B";
+		var dropAt = new Vector2(60, 60);
+		Rect2[] dragged = [new(dropAt, UMLAutoLayout.EstimatedNodeSize)];
+
+		UMLDiagram whileDragging = Open(code);
+		Vector2[] pushedWhileDragging = Push(whileDragging, ["A", "C"], dragged);
+
+		UMLDiagram dropped = Open(UMLCodeWriter.SetNodePosition(code, whileDragging.FindNode("B"), dropAt));
+		Vector2[] pushedAfterDrop = Push(dropped, ["A", "C"], dragged);
+
+		Assert.NotEqual(PositionOf(whileDragging, "A"), pushedWhileDragging[0]);
+		Assert.Equal(pushedWhileDragging, pushedAfterDrop);
+	}
+
+	[Fact]
+	public void SeparatesAutoPositionedNodesFromPositionedOnes()
+	{
+		UMLDiagram diagram = Open("class A\nclass B\n\tposition: [60, 60]");
+
+		UMLAutoLayout.SeparateFromPositioned(diagram);
+
+		Assert.True(
+			AreClear(
+				new Rect2(PositionOf(diagram, "B").Value, UMLAutoLayout.EstimatedNodeSize),
+				new Rect2(PositionOf(diagram, "A").Value, UMLAutoLayout.EstimatedNodeSize)
+			)
+		);
+		Assert.Equal(new Vector2(60, 60), PositionOf(diagram, "B"));
+	}
+
 	[Fact]
 	public void ResettingANodeGivesTheSamePositionsAsOpeningTheResultingText()
 	{

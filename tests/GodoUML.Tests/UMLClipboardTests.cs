@@ -95,6 +95,19 @@ public class UMLClipboardTests
 	}
 
 	[Fact]
+	public void KeepsPastedNodesWithoutAPositionClearOfTheOnesWithOne()
+	{
+		Assert.True(
+			UMLClipboard.TryPaste("class A\nclass B\n\tposition: [60, 60]", new UMLDiagram(), Vector2.Zero, out string code, out _)
+		);
+
+		UMLDiagram pasted = Parse(code);
+		Rect2 a = new(pasted.FindNode("A").Position.Value, UMLAutoLayout.EstimatedNodeSize);
+		Rect2 b = new(pasted.FindNode("B").Position.Value, UMLAutoLayout.EstimatedNodeSize);
+		Assert.False(a.Intersects(b));
+	}
+
+	[Fact]
 	public void LaysOutPastedNodesThatHaveNoPosition()
 	{
 		Assert.True(UMLClipboard.TryPaste("class A\nclass B\nA --> B", new UMLDiagram(), new Vector2(5, 5), out string code, out _));

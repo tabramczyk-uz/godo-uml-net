@@ -71,6 +71,7 @@ public static class UMLClipboard
 
 		UMLDiagram pasted = result.Diagram;
 		UMLAutoLayout.ApplyToUnpositioned(pasted);
+		UMLAutoLayout.SeparateFromPositioned(pasted);
 
 		var taken = new HashSet<string>();
 		foreach (UMLNode node in target.Nodes)
