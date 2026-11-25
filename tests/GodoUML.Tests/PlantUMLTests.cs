@@ -101,6 +101,68 @@ public class PlantUMLExporterTests
 	}
 }
 
+public class PlantUMLSequenceExporterTests
+{
+	private static SequenceDiagram Parse(string body)
+	{
+		SequenceParseResult result = SequenceParser.Parse(body);
+		Assert.True(result.IsSuccess, result.ErrorMessage);
+		return result.Diagram;
+	}
+
+	[Fact]
+	public void WritesTheParticipantsAndThenTheMessages()
+	{
+		string plantUml = PlantUMLSequenceExporter.Export(
+			Parse(
+				string.Join(
+					"\n",
+					"actor User",
+					"participant Shop",
+					"User -> Shop : order",
+					"Shop ->> Shop : log",
+					"Shop --> User : receipt",
+					"User -> Shop"
+				)
+			)
+		);
+
+		Assert.Equal(
+			string.Join(
+				"\n",
+				"@startuml",
+				"",
+				"actor User",
+				"participant Shop",
+				"",
+				"User -> Shop : order",
+				"Shop ->> Shop : log",
+				"Shop --> User : receipt",
+				"User -> Shop",
+				"",
+				"@enduml",
+				""
+			),
+			plantUml
+		);
+	}
+
+	[Fact]
+	public void LeavesOutTheGapWhenThereAreNoMessages()
+	{
+		Assert.Equal(
+			"@startuml\n\nparticipant Shop\n\n@enduml\n",
+			PlantUMLSequenceExporter.Export(Parse("participant Shop"))
+		);
+	}
+
+	[Fact]
+	public void ExportsAnEmptyDiagramAsJustTheMarkers()
+	{
+		Assert.Equal("@startuml\n\n\n@enduml\n", PlantUMLSequenceExporter.Export(new SequenceDiagram()));
+	}
+}
+
 public class PlantUMLImporterTests
 {
 	[Fact]
