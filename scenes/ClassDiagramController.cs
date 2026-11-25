@@ -68,15 +68,6 @@ public class ClassDiagramController : IDiagramController
 		canvas.RenderDiagram(null);
 	}
 
-	/// <summary>
-	/// Drops the remembered auto-layout positions, before a different diagram
-	/// replaces this one, so it is laid out afresh.
-	/// </summary>
-	public void ForgetLayout()
-	{
-		canvas.ForgetLayout();
-	}
-
 	public void FrameDiagram()
 	{
 		canvas.FrameDiagram();

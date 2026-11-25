@@ -208,13 +208,6 @@ public partial class ClassDiagramCanvas : Control
 	/// </summary>
 	private readonly RelationshipLines relationshipLines;
 
-	/// <summary>
-	/// Where each auto-positioned node sits when nothing pushes it. Every push is
-	/// computed afresh from these, so where a node is shown depends only on where
-	/// the other nodes are now, not on how they got there.
-	/// </summary>
-	private readonly UMLLayoutMemory layoutMemory = new();
-
 	public ClassDiagramCanvas()
 	{
 		relationshipLines = new RelationshipLines(node => GetRect(containers[node]));
@@ -623,16 +616,6 @@ public partial class ClassDiagramCanvas : Control
 		}
 
 		QueueRedraw();
-	}
-
-	/// <summary>
-	/// Drops the remembered rest positions of auto-positioned nodes, so the next
-	/// diagram is laid out afresh instead of inheriting spots from one that
-	/// merely used the same node names.
-	/// </summary>
-	public void ForgetLayout()
-	{
-		layoutMemory.Clear();
 	}
 
 	/// <summary>
@@ -1149,7 +1132,6 @@ public partial class ClassDiagramCanvas : Control
 			}
 		}
 
-		layoutMemory.Update(newDiagram);
 		PushAutoPositioned([]);
 		QueueRedraw();
 	}
@@ -1227,10 +1209,12 @@ public partial class ClassDiagramCanvas : Control
 	/// <summary>
 	/// Shoves the auto-positioned containers out of the way of every other node,
 	/// and of the <paramref name="dragged"/> ones in particular, so they part
-	/// around them as they move. Each push starts over from the rest positions,
-	/// so moving the dragged nodes back lets the others fall back to exactly
-	/// where they were. Only container positions change; the model and the
-	/// source stay untouched.
+	/// around them as they move. Each push starts over from the rest positions
+	/// this parse's auto-layout gave the nodes, so where a node is shown depends
+	/// only on the source and on where the other nodes are now: moving the
+	/// dragged nodes back lets the others fall back to exactly where they were.
+	/// Only container positions change; the model and the source stay
+	/// untouched.
 	/// </summary>
 	private void PushAutoPositioned(ICollection<UMLNodeContainer> dragged)
 	{
@@ -1242,7 +1226,7 @@ public partial class ClassDiagramCanvas : Control
 			if (node.IsAutoPositioned && !dragged.Contains(container))
 			{
 				movable.Add(container);
-				restBoxes.Add(new Rect2(layoutMemory.GetRestPosition(node), GetSize(container)));
+				restBoxes.Add(new Rect2(node.Position.Value, GetSize(container)));
 			}
 			else
 			{
@@ -1296,7 +1280,6 @@ public partial class ClassDiagramCanvas : Control
 
 	private void OnNodeContainerNameChanged(UMLNode node, string newName)
 	{
-		layoutMemory.Rename(node.Name, newName);
 		NodeNameChanged?.Invoke(node, newName);
 	}
 }

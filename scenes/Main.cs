@@ -412,7 +412,6 @@ public partial class Main : Control
 	/// </summary>
 	private void LoadCode(string code)
 	{
-		classDiagram.ForgetLayout();
 		codeEditor.LoadCode(code);
 		FrameActiveDiagramLater();
 	}

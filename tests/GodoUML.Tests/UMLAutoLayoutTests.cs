@@ -298,4 +298,68 @@ public class UMLAutoLayoutTests
 			Build(source).Nodes.Select(node => node.Position)
 		);
 	}
+
+	/// <summary>
+	/// Parses <paramref name="code"/> and places its unpositioned nodes, as
+	/// the class canvas does on every parse.
+	/// </summary>
+	private static UMLDiagram Open(string code)
+	{
+		UMLParseResult result = UMLParser.Parse(code);
+		Assert.True(result.IsSuccess, result.ErrorMessage);
+		UMLAutoLayout.ApplyToUnpositioned(result.Diagram);
+		return result.Diagram;
+	}
+
+	/// <summary>Reset Position on one node: its position line is deleted.</summary>
+	private static string ResetPosition(string code, string name)
+	{
+		return UMLCodeWriter.RemoveNodePositions(code, [Open(code).FindNode(name)]);
+	}
+
+	private const string TwoPinnedNodes = "class A\n\tposition: [520, 380]\nclass B\n\tposition: [280, 210]";
+
+	[Fact]
+	public void ResettingTwoPinnedNodesPutsThemOnSeparateGridCells()
+	{
+		string code = ResetPosition(ResetPosition(TwoPinnedNodes, "B"), "A");
+		UMLDiagram diagram = Open(code);
+
+		Vector2 a = diagram.FindNode("A").Position.Value;
+		Vector2 b = diagram.FindNode("B").Position.Value;
+		Assert.True(diagram.FindNode("A").IsAutoPositioned);
+		Assert.True(diagram.FindNode("B").IsAutoPositioned);
+		Assert.NotEqual(a, b);
+		Assert.True(
+			Mathf.Abs(a.X - b.X) >= UMLAutoLayout.ColumnSpacing || Mathf.Abs(a.Y - b.Y) >= UMLAutoLayout.RowSpacing
+		);
+
+		// Resting on separate cells, the canvas has nothing to push apart.
+		Rect2[] rest = [new(a, UMLAutoLayout.EstimatedNodeSize), new(b, UMLAutoLayout.EstimatedNodeSize)];
+		Assert.Equal([a, b], UMLAutoLayout.Separate(rest, []));
+	}
+
+	[Fact]
+	public void ResettingNodesGivesTheSamePositionsWhicheverOrderTheyAreResetIn()
+	{
+		UMLDiagram resetBFirst = Open(ResetPosition(ResetPosition(TwoPinnedNodes, "B"), "A"));
+		UMLDiagram resetAFirst = Open(ResetPosition(ResetPosition(TwoPinnedNodes, "A"), "B"));
+
+		Assert.Equal(
+			resetBFirst.Nodes.Select(node => (node.Name, node.Position)),
+			resetAFirst.Nodes.Select(node => (node.Name, node.Position))
+		);
+	}
+
+	[Fact]
+	public void ResettingANodeGivesTheSamePositionsAsOpeningTheResultingText()
+	{
+		UMLDiagram reset = Open(ResetPosition(TwoPinnedNodes, "B"));
+		UMLDiagram opened = Open("class A\n\tposition: [520, 380]\nclass B");
+
+		Assert.Equal(
+			opened.Nodes.Select(node => (node.Name, node.Position)),
+			reset.Nodes.Select(node => (node.Name, node.Position))
+		);
+	}
 }
