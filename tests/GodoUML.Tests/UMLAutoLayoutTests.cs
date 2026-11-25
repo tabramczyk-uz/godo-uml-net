@@ -62,11 +62,16 @@ public class UMLAutoLayoutTests
 	}
 
 	[Fact]
-	public void KeepsNodesJoinedOnlyByAssociationsAndDependenciesInOneRow()
+	public void PutsNodesJoinedOnlyByAssociationsAndDependenciesOnAnArcBelowTheFirst()
 	{
 		UMLDiagram diagram = Build("class A", "class B", "class C", "A --> B", "B ..> C", "C -- A");
 
-		Assert.All(diagram.Nodes, node => Assert.Equal(UMLAutoLayout.Margin, node.Position.Value.Y));
+		Vector2 a = CellOf(diagram, "A");
+		Vector2 b = CellOf(diagram, "B");
+		Vector2 c = CellOf(diagram, "C");
+		Assert.True(b.Y > a.Y && c.Y > a.Y);
+		Assert.Equal(b.Y, c.Y, 0.01f);
+		Assert.True(b.X < a.X && a.X < c.X);
 	}
 
 	[Fact]
@@ -378,6 +383,174 @@ public class UMLAutoLayoutTests
 
 		List<Vector2> positions = diagram.Nodes.Select(node => node.Position.Value).ToList();
 		Assert.Equal(positions.Count, positions.Distinct().Count());
+	}
+
+	/// <summary>
+	/// A class <c>Hub</c> associated with <paramref name="count"/> others,
+	/// <c>N1</c>, <c>N2</c>, …, declared after it.
+	/// </summary>
+	private static string[] Star(int count) =>
+		[
+			"class Hub",
+			.. Classes(count, "N"),
+			.. Enumerable.Range(1, count).Select(i => $"Hub -- N{i}"),
+		];
+
+	/// <summary>Where <paramref name="name"/> is relative to <c>Hub</c>, in cells.</summary>
+	private static Vector2 FromHub(UMLDiagram diagram, string name) =>
+		CellOf(diagram, name) - CellOf(diagram, "Hub");
+
+	/// <summary>Positions are rounded to whole pixels, which moves them by a fraction of a cell.</summary>
+	private const float CellTolerance = 0.01f;
+
+	[Fact]
+	public void PutsThreeAssociatesOnAnArcBelowTheirHub()
+	{
+		UMLDiagram diagram = Build(Star(3));
+
+		Assert.Equal(0, FromHub(diagram, "N1").X, CellTolerance);
+		Assert.True(FromHub(diagram, "N1").Y > 0);
+		Assert.True(FromHub(diagram, "N2").X < 0 && FromHub(diagram, "N2").Y > 0);
+		Assert.True(FromHub(diagram, "N3").X > 0 && FromHub(diagram, "N3").Y > 0);
+	}
+
+	[Fact]
+	public void PutsTheOnlyAssociateStraightBelowItsHub()
+	{
+		UMLDiagram diagram = Build(Star(1));
+
+		Assert.Equal(new Vector2(0, 1), FromHub(diagram, "N1"));
+	}
+
+	[Fact]
+	public void PutsTwelveAssociatesOnAFullRingOneCellApart()
+	{
+		UMLDiagram diagram = Build(Star(12));
+
+		List<Vector2> ring = Enumerable.Range(1, 12).Select(i => FromHub(diagram, $"N{i}")).ToList();
+		Assert.All(ring, cell => Assert.Equal(ring[0].Length(), cell.Length(), 0.02f));
+		Assert.Contains(ring, cell => cell.Y < 0);
+		Assert.Contains(ring, cell => cell.Y > 0);
+		for (int i = 0; i < ring.Count; i++)
+		{
+			for (int j = i + 1; j < ring.Count; j++)
+			{
+				Assert.True(ring[i].DistanceTo(ring[j]) >= 1 - CellTolerance, $"N{i + 1} and N{j + 1} are too close");
+			}
+		}
+	}
+
+	[Fact]
+	public void PutsTheLargestSubtreeBottomMost()
+	{
+		UMLDiagram diagram = Build([.. Star(3), "class Far1", "class Far2", "N3 -- Far1", "N3 -- Far2"]);
+
+		Assert.Equal(0, FromHub(diagram, "N3").X, CellTolerance);
+		Assert.True(FromHub(diagram, "N3").Y > FromHub(diagram, "N1").Y);
+		Assert.True(FromHub(diagram, "N3").Y > FromHub(diagram, "N2").Y);
+	}
+
+	[Fact]
+	public void DoesNotStringAChainOfAssociationsAlongOneRow()
+	{
+		UMLDiagram diagram = Build([.. Classes(10), .. Enumerable.Range(2, 9).Select(i => $"C{i} -- C{i - 1}")]);
+
+		List<Vector2> cells = diagram.Nodes.Select(node => CellOf(diagram, node.Name)).ToList();
+		Assert.True(cells.Max(cell => cell.X) - cells.Min(cell => cell.X) < 9);
+		Assert.True(cells.Select(cell => cell.Y).Distinct().Count() > 1);
+	}
+
+	/// <summary>Whether any of <paramref name="lines"/> runs through a node other than its two ends.</summary>
+	private static void AssertLinesClear(UMLDiagram diagram, IEnumerable<(string From, string To)> lines)
+	{
+		foreach ((string from, string to) in lines)
+		{
+			foreach (UMLNode node in diagram.Nodes.Where(node => node.Name != from && node.Name != to))
+			{
+				Assert.False(LineCrosses(diagram, from, to, node.Name), $"{from}–{to} runs through {node.Name}");
+			}
+		}
+	}
+
+	private static IEnumerable<(string From, string To)> LinesOf(UMLDiagram diagram) =>
+		diagram.Relationships.Select(relationship => (relationship.From.Name, relationship.To.Name));
+
+	[Theory]
+	[InlineData(3)]
+	[InlineData(7)]
+	[InlineData(8)]
+	[InlineData(12)]
+	[InlineData(20)]
+	public void KeepsTheLinesOfAStarClearOfItsNodes(int count)
+	{
+		UMLDiagram diagram = Build(Star(count));
+
+		AssertLinesClear(diagram, LinesOf(diagram));
+	}
+
+	[Fact]
+	public void KeepsTheLinesOfAChainClearOfItsNodes()
+	{
+		UMLDiagram diagram = Build([.. Classes(10), .. Enumerable.Range(2, 9).Select(i => $"C{i} -- C{i - 1}")]);
+
+		AssertLinesClear(diagram, LinesOf(diagram));
+	}
+
+	[Fact]
+	public void KeepsTheLinesOfATwoLevelTreeClearOfItsNodes()
+	{
+		UMLDiagram diagram = Build(
+			[
+				.. Star(5),
+				.. Enumerable
+					.Range(1, 5)
+					.SelectMany(i => Enumerable.Range(1, i).SelectMany(j => new[] { $"class L{i}x{j}", $"N{i} -- L{i}x{j}" })),
+			]
+		);
+
+		AssertLinesClear(diagram, LinesOf(diagram));
+	}
+
+	[Fact]
+	public void KeepsTheSpanningTreeLinesOfTwoHubsSharingNeighboursClear()
+	{
+		UMLDiagram diagram = Build(
+			[.. Star(4), "class Other", .. Enumerable.Range(1, 4).Select(i => $"Other -- N{i}")]
+		);
+
+		// Hub is declared first, so the tree runs from it through its four
+		// neighbours to Other, which hangs off N1; Other's lines to N2–N4 close
+		// cycles and are left to task 3.4.
+		AssertLinesClear(diagram, [("Hub", "N1"), ("Hub", "N2"), ("Hub", "N3"), ("Hub", "N4"), ("N1", "Other")]);
+	}
+
+	[Fact]
+	public void NeverOverlapsNodesOfDifferentGroups()
+	{
+		UMLDiagram diagram = Build(
+			[
+				.. Star(9),
+				.. SeparateHierarchies(3),
+				.. Classes(5, "Loose"),
+				"class P",
+				"class Q",
+				"P -- Q",
+			]
+		);
+
+		List<Rect2> boxes = diagram
+			.Nodes.Select(node => new Rect2(node.Position.Value, UMLAutoLayout.EstimatedNodeSize))
+			.ToList();
+		for (int i = 0; i < boxes.Count; i++)
+		{
+			for (int j = i + 1; j < boxes.Count; j++)
+			{
+				Assert.False(
+					boxes[i].Intersects(boxes[j]),
+					$"{diagram.Nodes[i].Name} overlaps {diagram.Nodes[j].Name}"
+				);
+			}
+		}
 	}
 
 	private static readonly Vector2 BoxSize = new(100.0f, 50.0f);

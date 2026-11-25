@@ -10,11 +10,15 @@ using Godot;
 /// then packed on shelves towards <see cref="TargetAspectRatio"/>; unconnected
 /// nodes go in a grid below them all.
 ///
-/// Each group gets a layered layout in the Sugiyama spirit: hierarchical
-/// relationships are read as "this one belongs above that one", nodes are
-/// pushed as far down as those relationships require, and each row is then
-/// ordered, by every relationship, to keep the lines between rows as untangled
-/// as the barycentre rule can manage.
+/// A hierarchical group gets a layered layout in the Sugiyama spirit:
+/// hierarchical relationships are read as "this one belongs above that one",
+/// nodes are pushed as far down as those relationships require, and each row
+/// is then ordered, by every relationship, to keep the lines between rows as
+/// untangled as the barycentre rule can manage.
+///
+/// In an association group nothing belongs above anything else, so it is laid
+/// out radially around its most connected node instead
+/// (<see cref="UMLRadialLayout"/>).
 /// </summary>
 public static class UMLAutoLayout
 {
@@ -47,6 +51,7 @@ public static class UMLAutoLayout
 	private const int OrderingSweeps = 4;
 	private const int SeparationPasses = 32;
 	private const float OverlapTolerance = 0.01f;
+	private const float RadialTolerance = 0.001f;
 
 	public static void Apply(UMLDiagram diagram)
 	{
@@ -112,7 +117,13 @@ public static class UMLAutoLayout
 	public static Dictionary<UMLNode, Vector2> Layout(List<UMLNode> nodes, List<UMLRelationship> relationships)
 	{
 		(List<List<UMLNode>> groups, List<UMLNode> unconnected) = FindConnectedGroups(nodes, relationships);
-		List<Block> blocks = groups.Select(group => LayOutLayered(group, relationships)).ToList();
+		List<Block> blocks = groups
+			.Select(group =>
+				IsHierarchical(group, relationships)
+					? LayOutLayered(group, relationships)
+					: LayOutRadial(group, relationships)
+			)
+			.ToList();
 
 		Dictionary<UMLNode, Vector2> positions = [];
 		int gridTop = 0;
@@ -287,6 +298,48 @@ public static class UMLAutoLayout
 	private static Vector2 CellPosition(Vector2I cell)
 	{
 		return new Vector2(Margin + (cell.X * ColumnSpacing), Margin + (cell.Y * RowSpacing));
+	}
+
+	/// <summary>
+	/// Whether <paramref name="group"/> is a hierarchical group, one with a
+	/// hierarchical relationship between two of its nodes, which gets rows.
+	/// Otherwise it is an association group, which is laid out radially.
+	/// </summary>
+	private static bool IsHierarchical(List<UMLNode> group, List<UMLRelationship> relationships)
+	{
+		HashSet<UMLNode> members = [.. group];
+		return relationships.Any(relationship =>
+			relationship.Type.IsHierarchical()
+			&& relationship.From != relationship.To
+			&& members.Contains(relationship.From)
+			&& members.Contains(relationship.To)
+		);
+	}
+
+	/// <summary>
+	/// The radial layout of an association group, moved so that its leftmost
+	/// and topmost nodes touch the block's edges. Its nodes are off the grid,
+	/// so the block covers every cell they reach into, and the offsets are
+	/// rounded to whole pixels for the positions written into the source.
+	/// </summary>
+	private static Block LayOutRadial(List<UMLNode> group, List<UMLRelationship> relationships)
+	{
+		Dictionary<UMLNode, Vector2> cells = UMLRadialLayout.Layout(group, relationships);
+		var topLeft = new Vector2(cells.Values.Min(cell => cell.X), cells.Values.Min(cell => cell.Y));
+		var bottomRight = new Vector2(cells.Values.Max(cell => cell.X), cells.Values.Max(cell => cell.Y));
+		Vector2 spacing = new(ColumnSpacing, RowSpacing);
+
+		Dictionary<UMLNode, Vector2> offsets = cells.ToDictionary(
+			entry => entry.Key,
+			entry => ((entry.Value - topLeft) * spacing).Round()
+		);
+
+		// A span of exactly two cells covers three; the tolerance keeps a
+		// rounding error from turning it into four.
+		Vector2 span = bottomRight - topLeft;
+		int columns = Mathf.CeilToInt(span.X - RadialTolerance) + 1;
+		int rows = Mathf.CeilToInt(span.Y - RadialTolerance) + 1;
+		return new Block(offsets, columns, rows);
 	}
 
 	/// <summary>
