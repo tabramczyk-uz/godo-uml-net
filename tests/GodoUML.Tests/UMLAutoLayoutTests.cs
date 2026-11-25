@@ -62,6 +62,36 @@ public class UMLAutoLayoutTests
 	}
 
 	[Fact]
+	public void KeepsNodesJoinedOnlyByAssociationsAndDependenciesInOneRow()
+	{
+		UMLDiagram diagram = Build("class A", "class B", "class C", "A --> B", "B ..> C", "C -- A");
+
+		Assert.All(diagram.Nodes, node => Assert.Equal(UMLAutoLayout.Margin, node.Position.Value.Y));
+	}
+
+	[Fact]
+	public void LetsAnAssociationOrderARow()
+	{
+		// X and Y share their parent P, so without the associations they would
+		// keep declaration order, Y first. Each is pulled towards the node it is
+		// associated with in the row above: X towards A on the left, Y towards B.
+		UMLDiagram diagram = Build(
+			"class A",
+			"class B",
+			"class P",
+			"class Y",
+			"class X",
+			"Y --|> P",
+			"X --|> P",
+			"X --> A",
+			"Y --> B"
+		);
+
+		Assert.Equal(diagram.FindNode("X").Position.Value.Y, diagram.FindNode("Y").Position.Value.Y);
+		Assert.True(diagram.FindNode("X").Position.Value.X < diagram.FindNode("Y").Position.Value.X);
+	}
+
+	[Fact]
 	public void StacksAChainOfInheritance()
 	{
 		UMLDiagram diagram = Build("class A", "class B", "class C", "B --|> A", "C --|> B");

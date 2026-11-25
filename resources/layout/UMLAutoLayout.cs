@@ -6,10 +6,11 @@ using Godot;
 /// Places the nodes of a diagram that arrived without coordinates, which is what
 /// every PlantUML file that GodoUML did not write itself looks like.
 ///
-/// It is a layered layout in the Sugiyama spirit: relationships are read as
-/// "this one belongs above that one", nodes are pushed as far down as their
-/// relationships require, and each row is then ordered to keep the lines between
-/// rows as untangled as the barycentre rule can manage.
+/// It is a layered layout in the Sugiyama spirit: hierarchical relationships are
+/// read as "this one belongs above that one", nodes are pushed as far down as
+/// those relationships require, and each row is then ordered, by every
+/// relationship, to keep the lines between rows as untangled as the barycentre
+/// rule can manage.
 /// </summary>
 public static class UMLAutoLayout
 {
@@ -97,12 +98,13 @@ public static class UMLAutoLayout
 		}
 
 		Dictionary<UMLNode, int> indices = IndexNodes(nodes);
-		List<(int From, int To)> edges = BreakCycles(nodes.Count, BuildEdges(relationships, indices));
+		(List<(int From, int To)> hierarchy, List<(int From, int To)> pulls) = BuildEdges(relationships, indices);
+		List<(int From, int To)> edges = BreakCycles(nodes.Count, hierarchy);
 		int[] layers = AssignLayers(nodes.Count, edges);
 		(edges, layers) = SplitLongEdges(edges, layers);
 		List<List<int>> rows = GroupIntoRows(layers.Length, layers);
 
-		OrderRows(rows, edges, layers);
+		OrderRows(rows, [.. edges, .. pulls], layers);
 		return PlaceNodes(nodes, rows);
 	}
 
@@ -219,44 +221,61 @@ public static class UMLAutoLayout
 	}
 
 	/// <summary>
-	/// Turns relationships into "above/below" edges. A generalization points from
-	/// the general classifier to the specific one, so superclasses end up on top;
-	/// an aggregation points from the whole to its parts; anything else keeps the
-	/// order it was written in.
+	/// Sorts the relationships between the laid-out nodes into two kinds of edge.
+	/// A hierarchical relationship becomes an "above/below" edge that decides the
+	/// layers: a generalization points from the general classifier to the
+	/// specific one, so superclasses end up on top, and an aggregation points from
+	/// the whole to its parts. Associations and dependencies only become
+	/// <c>Pulls</c>, which draw their two nodes together when a row is ordered
+	/// but never move a node to another row: in real designs they often form
+	/// cycles, and letting them decide the layers made cycle removal fire on
+	/// ordinary diagrams (see ADR-0002).
 	/// </summary>
-	private static List<(int From, int To)> BuildEdges(
+	private static (List<(int From, int To)> Hierarchy, List<(int From, int To)> Pulls) BuildEdges(
 		List<UMLRelationship> relationships,
 		Dictionary<UMLNode, int> indices
 	)
 	{
-		List<(int From, int To)> edges = [];
+		List<(int From, int To)> hierarchy = [];
+		List<(int From, int To)> pulls = [];
 
 		foreach (UMLRelationship relationship in relationships)
 		{
-			(UMLNode above, UMLNode below) = Orient(relationship);
 			if (
-				!indices.TryGetValue(above, out int from)
-				|| !indices.TryGetValue(below, out int to)
+				!indices.TryGetValue(relationship.From, out int from)
+				|| !indices.TryGetValue(relationship.To, out int to)
 				|| from == to
 			)
 			{
 				continue;
 			}
 
-			edges.Add((from, to));
+			if (Orient(relationship) is (UMLNode above, UMLNode below))
+			{
+				hierarchy.Add((indices[above], indices[below]));
+			}
+			else
+			{
+				pulls.Add((from, to));
+			}
 		}
 
-		return edges;
+		return (hierarchy, pulls);
 	}
 
 	/// <summary>
 	/// The relationship as the layout reads it: which of its two nodes belongs
-	/// above the other.
+	/// above the other. Null for an association or dependency, which leaves the
+	/// rows alone.
 	/// </summary>
-	public static (UMLNode Above, UMLNode Below) Orient(UMLRelationship relationship)
+	public static (UMLNode Above, UMLNode Below)? Orient(UMLRelationship relationship)
 	{
-		bool parentIsTo = relationship.Type.IsHierarchical() && relationship.Direction.DecoratesTo();
-		return parentIsTo
+		if (!relationship.Type.IsHierarchical())
+		{
+			return null;
+		}
+
+		return relationship.Direction.DecoratesTo()
 			? (relationship.To, relationship.From)
 			: (relationship.From, relationship.To);
 	}
