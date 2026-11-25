@@ -206,4 +206,119 @@ public class RoundTripTests
 		);
 		Assert.Equal(2, Parse(renamed).Nodes.Count);
 	}
+
+	private const string SequenceDiagramCode = """
+		diagram sequence
+		actor User
+		participant Shop
+		participant Bank
+		User -> Shop : order
+		Shop -> Bank : charge(card, amount)
+		Bank --> Shop : ok
+		Shop ->> Shop : log
+		Shop --> User : receipt
+		User -> Bank
+		""";
+
+	private static SequenceDiagram ParseSequence(string code)
+	{
+		UMLDiagramHeader header = UMLDiagramHeader.Read(code);
+		Assert.Equal(UMLDiagramKind.Sequence, header.Kind);
+		SequenceParseResult result = SequenceParser.Parse(header.RemoveFrom(code));
+		Assert.True(
+			result.IsSuccess,
+			$"{result.ErrorMessage} on line {result.ErrorLineNumber}:\n{code}"
+		);
+		return result.Diagram;
+	}
+
+	private static void AssertSameDiagram(SequenceDiagram expected, SequenceDiagram actual)
+	{
+		Assert.Equal(
+			expected.Participants.Select(participant => (participant.Name, participant.Kind)),
+			actual.Participants.Select(participant => (participant.Name, participant.Kind))
+		);
+		Assert.Equal(expected.Messages.Select(Describe), actual.Messages.Select(Describe));
+		Assert.Equal(
+			expected.Activations.Select(Describe),
+			actual.Activations.Select(Describe)
+		);
+	}
+
+	private static string Describe(SequenceMessage message)
+	{
+		return string.Join("|", message.From.Name, message.To.Name, message.Kind, message.Label);
+	}
+
+	private static string Describe(SequenceActivation activation)
+	{
+		return string.Join(
+			"|",
+			activation.Participant.Name,
+			activation.StartMessageIndex,
+			activation.EndMessageIndex,
+			activation.Depth
+		);
+	}
+
+	[Fact]
+	public void ASequenceDiagramSurvivesATripThroughPlantUml()
+	{
+		SequenceDiagram original = ParseSequence(SequenceDiagramCode);
+
+		PlantUMLSequenceImportResult imported = PlantUMLSequenceImporter.Import(
+			PlantUMLSequenceExporter.Export(original)
+		);
+
+		Assert.True(imported.IsComplete, string.Join("; ", imported.Warnings));
+		Assert.True(imported.IsSequenceDiagram);
+		AssertSameDiagram(original, imported.Diagram);
+	}
+
+	[Fact]
+	public void ExportingASequenceDiagramIsStableAfterTheFirstPass()
+	{
+		string plantUml = PlantUMLSequenceExporter.Export(ParseSequence(SequenceDiagramCode));
+
+		string second = PlantUMLSequenceExporter.Export(
+			PlantUMLSequenceImporter.Import(plantUml).Diagram
+		);
+
+		Assert.Equal(plantUml, second);
+	}
+
+	[Fact]
+	public void AnExportedClassDiagramIsNotTakenForASequenceDiagram()
+	{
+		string plantUml = PlantUMLExporter.Export(Parse(ClassDiagram));
+
+		Assert.False(PlantUMLSequenceImporter.Import(plantUml).IsSequenceDiagram);
+	}
+
+	[Fact]
+	public void AnImportedSequenceDiagramBecomesCodeThatParses()
+	{
+		PlantUMLSequenceImportResult imported = PlantUMLSequenceImporter.Import(
+			string.Join(
+				"\n",
+				"@startuml",
+				"autonumber",
+				"actor \"Web User\" as User",
+				"User -> Shop : order",
+				"activate Shop",
+				"Shop -[#blue]> \"Payment Bank\" : charge",
+				"\"Payment Bank\" --> Shop : ok",
+				"Shop -> Shop : log",
+				"User <-- Shop : receipt",
+				"deactivate Shop",
+				"@enduml"
+			)
+		);
+
+		SequenceDiagram reparsed = ParseSequence(SequenceCodeGenerator.Generate(imported.Diagram));
+
+		Assert.True(imported.IsComplete, string.Join("; ", imported.Warnings));
+		Assert.Equal(["User", "Shop", "Payment_Bank"], reparsed.Participants.Select(p => p.Name));
+		AssertSameDiagram(imported.Diagram, reparsed);
+	}
 }

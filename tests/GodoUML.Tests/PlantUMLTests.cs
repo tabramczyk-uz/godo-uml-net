@@ -413,3 +413,234 @@ public class PlantUMLImporterTests
 		Assert.EndsWith("\n...and 3 more.", description);
 	}
 }
+
+public class PlantUMLSequenceImporterTests
+{
+	private static PlantUMLSequenceImportResult Import(params string[] lines)
+	{
+		return PlantUMLSequenceImporter.Import(string.Join("\n", ["@startuml", .. lines, "@enduml"]));
+	}
+
+	private static string Describe(SequenceMessage message)
+	{
+		return $"{message.From.Name} {message.Kind} {message.To.Name} : {message.Label}";
+	}
+
+	[Fact]
+	public void ImportsDeclarationsInOrderWithTheirKinds()
+	{
+		PlantUMLSequenceImportResult result = Import(
+			"participant Shop",
+			"actor User",
+			"database Store",
+			"boundary Gate"
+		);
+
+		Assert.True(result.IsComplete, string.Join("; ", result.Warnings));
+		Assert.Equal(
+			[
+				("Shop", SequenceParticipantKind.Participant),
+				("User", SequenceParticipantKind.Actor),
+				("Store", SequenceParticipantKind.Participant),
+				("Gate", SequenceParticipantKind.Participant),
+			],
+			result.Diagram.Participants.Select(p => (p.Name, p.Kind))
+		);
+	}
+
+	[Theory]
+	[InlineData("A -> B", "A Synchronous B")]
+	[InlineData("A->>B", "A Asynchronous B")]
+	[InlineData("A --> B", "A Reply B")]
+	[InlineData("A -->> B", "A Reply B")]
+	[InlineData("A <- B", "B Synchronous A")]
+	[InlineData("A <<- B", "B Asynchronous A")]
+	[InlineData("A <-- B", "B Reply A")]
+	[InlineData("A -[#red]> B", "A Synchronous B")]
+	[InlineData("A -[#red]-> B", "A Reply B")]
+	public void ImportsEveryArrowItSupports(string line, string expected)
+	{
+		PlantUMLSequenceImportResult result = Import("participant A", "participant B", line);
+
+		Assert.True(result.IsComplete, string.Join("; ", result.Warnings));
+		Assert.Equal($"{expected} : ", Describe(Assert.Single(result.Diagram.Messages)));
+	}
+
+	[Theory]
+	[InlineData("A <-> B")]
+	[InlineData("A ->x B")]
+	[InlineData("A - B")]
+	[InlineData("[-> A")]
+	public void WarnsAboutArrowsThatAreNotOneWayMessages(string line)
+	{
+		PlantUMLSequenceImportResult result = Import("participant A", "participant B", line);
+
+		Assert.Contains("Line 4", Assert.Single(result.Warnings));
+		Assert.Empty(result.Diagram.Messages);
+	}
+
+	[Fact]
+	public void DeclaresParticipantsThatOnlyAppearInMessages()
+	{
+		PlantUMLSequenceImportResult result = Import(
+			"Alice -> Bob : hello",
+			"participant Carol",
+			"Bob -> Carol",
+			"actor Alice"
+		);
+
+		Assert.True(result.IsComplete, string.Join("; ", result.Warnings));
+		Assert.Equal(
+			[
+				("Alice", SequenceParticipantKind.Actor),
+				("Bob", SequenceParticipantKind.Participant),
+				("Carol", SequenceParticipantKind.Participant),
+			],
+			result.Diagram.Participants.Select(p => (p.Name, p.Kind))
+		);
+		Assert.StartsWith(
+			"diagram sequence\n\nactor Alice\nparticipant Bob\nparticipant Carol\n\n",
+			SequenceCodeGenerator.Generate(result.Diagram)
+		);
+	}
+
+	[Fact]
+	public void TurnsNamesIntoIdentifiersAndFollowsAliases()
+	{
+		PlantUMLSequenceImportResult result = Import(
+			"participant \"Online Shop\" as Shop",
+			"actor User as \"The User\"",
+			"User -> Shop : buy",
+			"\"Online Shop\" --> \"The User\" : ok",
+			"\"Bank Account\" -> Bank_Account"
+		);
+
+		Assert.True(result.IsComplete, string.Join("; ", result.Warnings));
+		Assert.Equal(
+			["Shop", "User", "Bank_Account", "Bank_Account2"],
+			result.Diagram.Participants.Select(p => p.Name)
+		);
+		Assert.Equal(
+			[
+				"User Synchronous Shop : buy",
+				"Shop Reply User : ok",
+				"Bank_Account Synchronous Bank_Account2 : ",
+			],
+			result.Diagram.Messages.Select(Describe)
+		);
+	}
+
+	[Fact]
+	public void ReadsSelfMessagesAndKeepsLabelsFreeOfComments()
+	{
+		PlantUMLSequenceImportResult result = Import(
+			"participant Shop",
+			"Shop ->> Shop :  fetch http://example.com  "
+		);
+
+		SequenceMessage message = Assert.Single(result.Diagram.Messages);
+		Assert.True(message.IsSelfMessage);
+		Assert.Equal("fetch http:/example.com", message.Label);
+	}
+
+	[Fact]
+	public void DerivesActivationsAndSkipsTheOnesWrittenOut()
+	{
+		PlantUMLSequenceImportResult result = Import(
+			"' a comment",
+			"/' a block",
+			"   comment '/",
+			"title Checkout",
+			"skinparam monochrome true",
+			"autonumber",
+			"hide footbox",
+			"box \"Backend\"",
+			"participant Shop",
+			"participant Bank",
+			"end box",
+			"Shop -> Bank : charge",
+			"activate Bank",
+			"note right of Bank",
+			"  checks the card",
+			"end note",
+			"note left of Shop : waits",
+			"Bank --> Shop : ok",
+			"deactivate Bank"
+		);
+
+		Assert.True(result.IsComplete, string.Join("; ", result.Warnings));
+		Assert.Equal(2, result.Diagram.Messages.Count);
+		Assert.Single(result.Diagram.Activations);
+	}
+
+	[Fact]
+	public void WarnsAboutFragmentsCreationAndDividersButKeepsTheMessagesInside()
+	{
+		PlantUMLSequenceImportResult result = Import(
+			"participant A",
+			"participant B",
+			"== Start ==",
+			"alt ok",
+			"A -> B : pay",
+			"else failed",
+			"A -> B : retry",
+			"end",
+			"...",
+			"create C",
+			"A -> C",
+			"destroy C",
+			"return done"
+		);
+
+		Assert.Equal(8, result.Warnings.Count);
+		Assert.All(result.Warnings, warning => Assert.Contains("unsupported", warning));
+		Assert.Equal(["A", "B", "C"], result.Diagram.Participants.Select(p => p.Name));
+		Assert.Equal(3, result.Diagram.Messages.Count);
+	}
+
+	[Theory]
+	[InlineData("A -> B")]
+	[InlineData("participant A")]
+	[InlineData("actor User", "actor Admin", "User --> Admin")]
+	[InlineData("actor User", "activate User")]
+	[InlineData("participant A", "alt ok", "end")]
+	public void TakesForASequenceDiagramWhatPlantUmlWould(params string[] lines)
+	{
+		Assert.True(Import(lines).IsSequenceDiagram);
+	}
+
+	[Theory]
+	[InlineData]
+	[InlineData("actor User")]
+	[InlineData("class A", "A -> B")]
+	[InlineData("A -> B", "A <|-- C")]
+	[InlineData("actor User", "User --> (Log in)")]
+	[InlineData("participant A", "A -up-> B")]
+	[InlineData("A -> B", "package Shop {", "}")]
+	public void LeavesClassAndUseCaseDiagramsToTheClassImporter(params string[] lines)
+	{
+		Assert.False(Import(lines).IsSequenceDiagram);
+	}
+
+	[Theory]
+	[InlineData("")]
+	[InlineData("@startuml\n@enduml")]
+	[InlineData("@startuml\nskinparam monochrome true\n@enduml")]
+	public void FindsNothingToImportWithoutParticipants(string source)
+	{
+		Assert.True(PlantUMLSequenceImporter.Import(source).IsEmpty);
+	}
+
+	[Fact]
+	public void ListsTheLinesAnImportLeavesOut()
+	{
+		PlantUMLSequenceImportResult result = Import("A -> B", "loop 3 times");
+
+		Assert.False(result.IsEmpty);
+		Assert.Equal(
+			"1 line could not be imported and will be left out:\n"
+				+ "Line 3: unsupported sequence diagram statement (loop 3 times)",
+			result.DescribeSkippedLines()
+		);
+	}
+}
