@@ -77,7 +77,7 @@ public class UMLAutoLayoutTests
 	[Fact]
 	public void TerminatesOnACycle()
 	{
-		UMLDiagram diagram = Build("class A", "class B", "class C", "A --> B", "B --> C", "C --> A");
+		UMLDiagram diagram = Build("class A", "class B", "class C", "A *-- B", "B *-- C", "C *-- A");
 
 		Assert.Equal(3, diagram.Nodes.Count);
 	}
@@ -87,7 +87,7 @@ public class UMLAutoLayoutTests
 	[Fact]
 	public void StacksACycleOneNodePerRow()
 	{
-		UMLDiagram diagram = Build("class A", "class B", "class C", "A --> B", "B --> C", "C --> A");
+		UMLDiagram diagram = Build("class A", "class B", "class C", "A *-- B", "B *-- C", "C *-- A");
 
 		Assert.Equal(Row(0), diagram.FindNode("A").Position.Value.Y);
 		Assert.Equal(Row(1), diagram.FindNode("B").Position.Value.Y);
@@ -97,7 +97,7 @@ public class UMLAutoLayoutTests
 	[Fact]
 	public void StacksTwoNodesPointingAtEachOther()
 	{
-		UMLDiagram diagram = Build("class A", "class B", "A --> B", "B --> A");
+		UMLDiagram diagram = Build("class A", "class B", "A *-- B", "B *-- A");
 
 		Assert.Equal(Row(0), diagram.FindNode("A").Position.Value.Y);
 		Assert.Equal(Row(1), diagram.FindNode("B").Position.Value.Y);
@@ -112,10 +112,10 @@ public class UMLAutoLayoutTests
 			"class B",
 			"class Bottom",
 			"class Loose",
-			"Top --> A",
-			"A --> B",
-			"B --> A",
-			"B --> Bottom"
+			"Top *-- A",
+			"A *-- B",
+			"B *-- A",
+			"B *-- Bottom"
 		);
 
 		Assert.Equal(Row(0), diagram.FindNode("Top").Position.Value.Y);
@@ -150,7 +150,7 @@ public class UMLAutoLayoutTests
 	[Fact]
 	public void KeepsTheLineClosingACycleClearOfTheNodesInBetween()
 	{
-		UMLDiagram diagram = Build("class A", "class B", "class C", "A --> B", "B --> C", "C --> A");
+		UMLDiagram diagram = Build("class A", "class B", "class C", "A *-- B", "B *-- C", "C *-- A");
 
 		Assert.False(LineCrosses(diagram, "C", "A", "B"));
 	}
@@ -158,7 +158,7 @@ public class UMLAutoLayoutTests
 	[Fact]
 	public void KeepsALineSkippingARowClearOfTheNodesInIt()
 	{
-		UMLDiagram diagram = Build("class A", "class B", "class C", "A --> B", "B --> C", "A --> C");
+		UMLDiagram diagram = Build("class A", "class B", "class C", "A *-- B", "B *-- C", "A *-- C");
 
 		Assert.False(LineCrosses(diagram, "A", "C", "B"));
 	}
@@ -171,10 +171,10 @@ public class UMLAutoLayoutTests
 			"class B",
 			"class C",
 			"class D",
-			"A --> B",
-			"B --> C",
-			"C --> D",
-			"A --> D"
+			"A *-- B",
+			"B *-- C",
+			"C *-- D",
+			"A *-- D"
 		);
 
 		Assert.False(LineCrosses(diagram, "A", "D", "B"));
@@ -184,7 +184,7 @@ public class UMLAutoLayoutTests
 	[Fact]
 	public void BreaksACycleWhereverItIsDeclared()
 	{
-		UMLDiagram diagram = Build("class C", "class A", "class B", "A --> B", "B --> C", "C --> A");
+		UMLDiagram diagram = Build("class C", "class A", "class B", "A *-- B", "B *-- C", "C *-- A");
 
 		List<float> rows = diagram.Nodes.Select(node => node.Position.Value.Y).Distinct().ToList();
 		Assert.Equal(3, rows.Count);
