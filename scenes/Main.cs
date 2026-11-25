@@ -220,38 +220,20 @@ public partial class Main : Control
 	/// </summary>
 	private void ExportToPlantUML()
 	{
-		string code = codeEditor.Code;
-		UMLDiagramHeader header = UMLDiagramHeader.Read(code);
-		if (!header.IsSuccess)
-		{
-			ShowExportError(header.ErrorMessage, header.ErrorLineNumber);
-			return;
-		}
-
-		if (header.Kind != UMLDiagramKind.Class)
-		{
-			ShowErrorDialog("Cannot Export", "Only class diagrams can be exported to PlantUML so far.");
-			return;
-		}
-
-		UMLParseResult result = UMLParser.Parse(header.RemoveFrom(code));
+		PlantUMLExportResult result = PlantUMLDiagrams.Export(codeEditor.Code);
 		if (!result.IsSuccess)
 		{
-			ShowExportError(result.ErrorMessage, result.ErrorLineNumber);
+			ShowErrorDialog(
+				"Cannot Export",
+				$"The code has an error on line {result.ErrorLineNumber + 1}: {result.ErrorMessage}\n"
+					+ "Fix it, then export again."
+			);
 			return;
 		}
 
-		plantUmlText.Text = PlantUMLExporter.Export(result.Diagram);
+		plantUmlText.Text = result.Text;
 		copyButton.Text = CopyText;
 		exportDialog.PopupCentered();
-	}
-
-	private void ShowExportError(string message, int lineNumber)
-	{
-		ShowErrorDialog(
-			"Cannot Export",
-			$"The code has an error on line {lineNumber + 1}: {message}\nFix it, then export again."
-		);
 	}
 
 	private void OnExportDialogCustomAction(StringName action)
