@@ -24,6 +24,21 @@ _Avoid_: structure diagram, free diagram
 A generalization, realization, aggregation or composition: a relationship whose one end is the parent or whole of the other. Only these decide which node sits above which.
 _Avoid_: structural relationship, containment
 
+**Connected group**:
+The nodes of a class diagram that are joined to each other through relationships of any type, directly or via other nodes. The auto-layout places each group on its own and then packs the groups side by side.
+_Avoid_: cluster, component, island
+
+**Hierarchical group**:
+A connected group that contains at least one hierarchical relationship. It is laid out in rows, parents above children.
+
+**Association group**:
+A connected group joined only by associations and dependencies. It is laid out radially around its most connected node.
+_Avoid_: flat group
+
+**Unconnected node**:
+A node with no relationship to any other node. Unconnected nodes are laid out in a grid below all the connected groups.
+_Avoid_: isolated node, orphan
+
 **Sequence diagram**:
 A diagram kind made of participants placed left to right and messages between them, ordered top to bottom by time.
 
