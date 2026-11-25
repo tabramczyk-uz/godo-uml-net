@@ -70,6 +70,8 @@ public static partial class PlantUMLSyntax
 	private const string ArgumentPattern =
 		"^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?:[ \\t]*:[ \\t]*(?<type>.+?))?[ \\t]*$";
 
+	private const string NotePattern = "^(?:note|legend|caption)\\b";
+	private const string NoteEndPattern = "^(?:end[ \\t]*note|end[ \\t]*legend|end[ \\t]*caption)\\b";
 	private const string SeparatorPattern = "^(?:--|\\.\\.|==|__).*$";
 	private const string ModifierPattern = "\\{(?:static|abstract|field|method|classifier)\\}";
 	private const string IgnoredPattern =
@@ -139,6 +141,16 @@ public static partial class PlantUMLSyntax
 
 	[GeneratedRegex(ArgumentPattern)]
 	public static partial Regex ArgumentRegex();
+
+	/// <summary>
+	/// The start of a note, legend or caption: written inline after a colon,
+	/// or spread over lines until <see cref="NoteEndRegex"/>.
+	/// </summary>
+	[GeneratedRegex(NotePattern, RegexOptions.IgnoreCase)]
+	public static partial Regex NoteRegex();
+
+	[GeneratedRegex(NoteEndPattern, RegexOptions.IgnoreCase)]
+	public static partial Regex NoteEndRegex();
 
 	[GeneratedRegex(SeparatorPattern)]
 	public static partial Regex SeparatorRegex();

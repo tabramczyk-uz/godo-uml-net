@@ -18,8 +18,6 @@ public sealed partial class PlantUMLImporter
 	private const string PositionHintPattern = "^'@position[ \\t]+([A-Za-z_][A-Za-z0-9_]*)[ \\t]+(.+)$";
 	private const string GroupPattern =
 		"^(?:package|namespace|together|box|partition|state|group|mainframe)\\b.*\\{[ \\t]*$";
-	private const string NotePattern = "^(?:note|legend|caption)\\b";
-	private const string NoteEndPattern = "^(?:end[ \\t]*note|end[ \\t]*legend|end[ \\t]*caption)\\b";
 	private const string TypedMemberPattern =
 		"^(?<visibility>[+\\-#~])?[ \\t]*(?<type>[A-Za-z_][A-Za-z0-9_.<>\\[\\], ]*?)[ \\t]+"
 		+ "(?<name>[A-Za-z_][A-Za-z0-9_]*)(?:[ \\t]*\\((?<arguments>[^)]*)\\))?[ \\t]*$";
@@ -50,12 +48,6 @@ public sealed partial class PlantUMLImporter
 
 	[GeneratedRegex(GroupPattern, RegexOptions.IgnoreCase)]
 	private static partial Regex GroupRegex();
-
-	[GeneratedRegex(NotePattern, RegexOptions.IgnoreCase)]
-	private static partial Regex NoteRegex();
-
-	[GeneratedRegex(NoteEndPattern, RegexOptions.IgnoreCase)]
-	private static partial Regex NoteEndRegex();
 
 	[GeneratedRegex(TypedMemberPattern)]
 	private static partial Regex TypedMemberRegex();
@@ -131,13 +123,13 @@ public sealed partial class PlantUMLImporter
 			return false;
 		}
 
-		inNote = !NoteEndRegex().IsMatch(line);
+		inNote = !PlantUMLSyntax.NoteEndRegex().IsMatch(line);
 		return true;
 	}
 
 	private bool StartNote(string line)
 	{
-		if (!NoteRegex().IsMatch(line))
+		if (!PlantUMLSyntax.NoteRegex().IsMatch(line))
 		{
 			return false;
 		}
